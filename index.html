@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>每日成长计划</title>
+  <style>
+    :root {
+      --bg: #07090d;
+      --panel: #10141d;
+      --panel-2: #151b26;
+      --line: #263142;
+      --text: #eef4ff;
+      --muted: #98a5b8;
+      --accent: #2df58a;
+      --accent-2: #27b7ff;
+      --warn: #ffcc4d;
+      --danger: #ff5c6c;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+      --radius: 8px;
+      --font: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at 18% 0%, rgba(45, 245, 138, 0.13), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(39, 183, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, #07090d 0%, #0a0e14 48%, #050609 100%);
+      letter-spacing: 0;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 18px 14px 32px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .date-pill {
+      display: grid;
+      place-items: center;
+      min-width: 92px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(16, 20, 29, 0.82);
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .date-pill strong {
+      color: var(--accent);
+      font-size: 18px;
+    }
+
+    .date-pill small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .metric, .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(20, 26, 38, 0.96), rgba(12, 16, 23, 0.96));
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      min-height: 98px;
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      opacity: 0.9;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .quote {
+      grid-column: 1 / -1;
+      padding: 15px;
+      border: 1px solid rgba(45, 245, 138, 0.3);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(45, 245, 138, 0.12), rgba(39, 183, 255, 0.08));
+      color: #dfffea;
+      font-weight: 700;
+    }
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      padding: 8px 0 12px;
+      background: linear-gradient(180deg, rgba(7, 9, 13, 0.98), rgba(7, 9, 13, 0.78));
+      backdrop-filter: blur(12px);
+    }
+
+    .tab-btn, .primary-btn, .ghost-btn, .danger-btn {
+      min-height: 42px;
+      border-radius: var(--radius);
+      color: var(--text);
+      transition: transform 0.16s ease, filter 0.16s ease, border-color 0.16s ease;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: #0f141d;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tab-btn.active {
+      color: #061009;
+      background: linear-gradient(135deg, var(--accent), #85ffc0);
+      font-weight: 800;
+    }
+
+    .tab-btn:active, .primary-btn:active, .ghost-btn:active, .danger-btn:active {
+      transform: scale(0.96);
+      filter: brightness(1.18);
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      padding: 15px;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel-title small {
+      color: var(--muted);
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      outline: none;
+      color: var(--text);
+      background: #080c12;
+      padding: 10px 11px;
+    }
+
+    textarea {
+      min-height: 88px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45, 245, 138, 0.1);
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, var(--accent), #7dffb9);
+      color: #061009;
+      font-weight: 900;
+    }
+
+    .ghost-btn {
+      border: 1px solid var(--line);
+      background: #101722;
+      color: var(--text);
+    }
+
+    .danger-btn {
+      background: rgba(255, 92, 108, 0.14);
+      border: 1px solid rgba(255, 92, 108, 0.38);
+      color: #ffd5da;
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 12, 18, 0.72);
+    }
+
+    .item.unfinished {
+      border-color: rgba(255, 204, 77, 0.55);
+      background: linear-gradient(90deg, rgba(255, 204, 77, 0.1), rgba(8, 12, 18, 0.72));
+    }
+
+    .item.done {
+      opacity: 0.7;
+    }
+
+    .item input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      min-height: auto;
+      accent-color: var(--accent);
+    }
+
+    .item-main {
+      min-width: 0;
+    }
+
+    .item-name {
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .item.done .item-name {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 7px;
+    }
+
+    .badge {
+      padding: 4px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .badge.high {
+      border-color: rgba(255, 92, 108, 0.6);
+      color: #ffb9c0;
+    }
+
+    .badge.mid {
+      border-color: rgba(45, 245, 138, 0.45);
+      color: #b7ffd3;
+    }
+
+    .badge.low {
+      border-color: rgba(39, 183, 255, 0.45);
+      color: #b9e9ff;
+    }
+
+    .mini-delete {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius);
+      background: rgba(255, 92, 108, 0.12);
+      color: #ffd5da;
+      border: 1px solid rgba(255, 92, 108, 0.34);
+      transition: transform 0.16s ease;
+    }
+
+    .mini-delete:active {
+      transform: scale(0.92);
+    }
+
+    .split {
+      display: grid;
+      gap: 10px;
+    }
+
+    .record-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 12, 18, 0.72);
+    }
+
+    .record-card strong {
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .record-card p {
+      margin: 4px 0;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat-box {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #080c12;
+    }
+
+    .stat-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 7px;
+    }
+
+    .stat-box strong {
+      font-size: 24px;
+    }
+
+    .chart {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      align-items: end;
+      gap: 8px;
+      height: 180px;
+      padding: 12px 2px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bar-wrap {
+      display: grid;
+      align-items: end;
+      gap: 7px;
+      height: 100%;
+      min-width: 0;
+    }
+
+    .bar {
+      min-height: 6px;
+      border-radius: 5px 5px 0 0;
+      background: linear-gradient(180deg, var(--accent), rgba(45, 245, 138, 0.34));
+    }
+
+    .bar.fitness {
+      background: linear-gradient(180deg, var(--accent-2), rgba(39, 183, 255, 0.34));
+    }
+
+    .bar-label {
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .review-fields {
+      display: grid;
+      gap: 10px;
+    }
+
+    .empty {
+      padding: 18px 12px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      z-index: 20;
+      transform: translate(-50%, 120px);
+      opacity: 0;
+      min-width: min(360px, calc(100vw - 28px));
+      padding: 13px 16px;
+      border: 1px solid rgba(45, 245, 138, 0.5);
+      border-radius: var(--radius);
+      background: #07120c;
+      color: #dffff0;
+      box-shadow: var(--shadow);
+      text-align: center;
+      font-weight: 800;
+      transition: transform 0.24s ease, opacity 0.24s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (min-width: 720px) {
+      .app {
+        padding: 28px 22px 46px;
+      }
+
+      .brand h1 {
+        font-size: 34px;
+      }
+
+      .dashboard {
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .quote {
+        grid-column: span 5;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(5, minmax(96px, 1fr));
+      }
+
+      .grid.two {
+        grid-template-columns: 0.88fr 1.12fr;
+        align-items: start;
+      }
+
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .form-grid .wide, .review-fields .wide {
+        grid-column: 1 / -1;
+      }
+
+      .split {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .review-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 420px) {
+      .tab-btn {
+        min-height: 40px;
+        font-size: 12px;
+        padding: 0 3px;
+      }
+
+      .metric strong {
+        font-size: 24px;
+      }
+
+      .item {
+        grid-template-columns: auto 1fr;
+      }
+
+      .mini-delete {
+        grid-column: 2;
+        justify-self: end;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>每日成长计划</h1>
+        <span>学习 · 健身 · 复盘 · 长期自律</span>
+      </div>
+      <div class="date-pill">
+        <strong id="dayNumber">--</strong>
+        <small id="monthText">----</small>
+      </div>
+    </header>
+
+    <section class="dashboard" aria-label="首页仪表盘">
+      <div class="metric"><span>今日完成率</span><strong id="todayRate">0%</strong></div>
+      <div class="metric"><span>学习任务</span><strong id="studyTaskCount">0</strong></div>
+      <div class="metric"><span>健身任务</span><strong id="fitnessTaskCount">0</strong></div>
+      <div class="metric"><span>连续打卡</span><strong id="streakDays">0天</strong></div>
+      <div class="metric"><span>今日学习</span><strong id="todayStudyTotal">0分</strong></div>
+      <div class="quote" id="quoteText">把该做的事做完，胜过一百次热血上头。</div>
+    </section>
+
+    <nav class="tabs" aria-label="模块切换">
+      <button class="tab-btn active" data-tab="plans">计划</button>
+      <button class="tab-btn" data-tab="study">学习</button>
+      <button class="tab-btn" data-tab="fitness">健身</button>
+      <button class="tab-btn" data-tab="review">复盘</button>
+      <button class="tab-btn" data-tab="stats">统计</button>
+    </nav>
+
+    <section id="plans" class="screen active">
+      <div class="grid two">
+        <form class="panel" id="taskForm">
+          <div class="panel-title">
+            <h2>每日计划</h2>
+            <small>未完成会高亮</small>
+          </div>
+          <div class="form-grid">
+            <label class="wide">任务内容
+              <input id="taskName" required placeholder="例如：背英语单词 30 分钟" />
+            </label>
+            <label>分类
+              <select id="taskCategory">
+                <option>学习</option>
+                <option>健身</option>
+                <option>生活</option>
+                <option>其他</option>
+              </select>
+            </label>
+            <label>优先级
+              <select id="taskPriority">
+                <option>重要</option>
+                <option selected>普通</option>
+                <option>低</option>
+              </select>
+            </label>
+            <button class="primary-btn wide" type="submit">添加任务</button>
+          </div>
+        </form>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>今日任务</h2>
+            <small id="taskSummary">0 / 0</small>
+          </div>
+          <div class="list" id="taskList"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="study" class="screen">
+      <div class="grid two">
+        <form class="panel" id="studyForm">
+          <div class="panel-title">
+            <h2>学习记录</h2>
+            <small id="studyTotalLabel">今日 0 分钟</small>
+          </div>
+          <div class="form-grid">
+            <label>学习科目
+              <select id="studySubject">
+                <option>英语</option>
+                <option>电工</option>
+                <option>专升本</option>
+                <option>口才</option>
+                <option>其他</option>
+              </select>
+            </label>
+            <label>学习时长（分钟）
+              <input id="studyMinutes" type="number" min="1" required placeholder="60" />
+            </label>
+            <label>掌握程度
+              <select id="studyLevel">
+                <option>差</option>
+                <option selected>一般</option>
+                <option>良好</option>
+                <option>熟练</option>
+              </select>
+            </label>
+            <label class="wide">今日学习内容
+              <textarea id="studyContent" required placeholder="记录今天学了什么、做了哪些题、哪里还卡住"></textarea>
+            </label>
+            <button class="primary-btn wide" type="submit">保存学习记录</button>
+          </div>
+        </form>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>今日学习明细</h2>
+            <small>自动统计总时长</small>
+          </div>
+          <div class="list" id="studyList"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="fitness" class="screen">
+      <div class="grid two">
+        <form class="panel" id="fitnessForm">
+          <div class="panel-title">
+            <h2>健身记录</h2>
+            <small>力量 / 跑步 / 拉伸 / 休息</small>
+          </div>
+          <div class="form-grid">
+            <label>训练类型
+              <select id="trainingType">
+                <option>力量训练</option>
+                <option>跑步</option>
+                <option>拉伸</option>
+                <option>休息</option>
+              </select>
+            </label>
+            <label>身体状态
+              <select id="bodyState">
+                <option>疲劳</option>
+                <option selected>正常</option>
+                <option>状态好</option>
+              </select>
+            </label>
+            <label class="strength-field">动作
+              <input id="moveName" placeholder="深蹲 / 卧推 / 硬拉" />
+            </label>
+            <label class="strength-field">重量（kg）
+              <input id="weight" type="number" min="0" step="0.5" placeholder="60" />
+            </label>
+            <label class="strength-field">组数
+              <input id="sets" type="number" min="0" placeholder="4" />
+            </label>
+            <label class="strength-field">次数
+              <input id="reps" type="number" min="0" placeholder="10" />
+            </label>
+            <label class="run-field">距离（km）
+              <input id="distance" type="number" min="0" step="0.01" placeholder="5" />
+            </label>
+            <label class="run-field">配速
+              <input id="pace" placeholder="6'00&quot;" />
+            </label>
+            <label class="run-field">用时（分钟）
+              <input id="runMinutes" type="number" min="0" placeholder="30" />
+            </label>
+            <label class="wide">训练备注
+              <textarea id="trainingNote" placeholder="今天状态、动作感受、需要调整的地方"></textarea>
+            </label>
+            <button class="primary-btn wide" type="submit">保存训练记录</button>
+          </div>
+        </form>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>今日训练明细</h2>
+            <small id="fitnessTotalLabel">0 次</small>
+          </div>
+          <div class="list" id="fitnessList"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="review" class="screen">
+      <form class="panel" id="reviewForm">
+        <div class="panel-title">
+          <h2>每日复盘</h2>
+          <small>保存后自动进入统计</small>
+        </div>
+        <div class="review-fields">
+          <label>今日完成了什么
+            <textarea id="doneToday" placeholder="写下今天真正完成的事"></textarea>
+          </label>
+          <label>没完成的原因
+            <textarea id="missReason" placeholder="别糊弄自己，找原因，不找借口"></textarea>
+          </label>
+          <label class="wide">明天最重要的三件事
+            <textarea id="tomorrowTop3" placeholder="1.&#10;2.&#10;3."></textarea>
+          </label>
+          <label>今日自评分（1-10）
+            <input id="selfScore" type="number" min="1" max="10" placeholder="8" />
+          </label>
+          <label>今日总结一句话
+            <input id="oneSentence" placeholder="例如：稳住节奏，明天继续推进。" />
+          </label>
+          <button class="primary-btn wide" type="submit">保存今日复盘</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="stats" class="screen">
+      <section class="panel">
+        <div class="panel-title">
+          <h2>数据统计</h2>
+          <small>最近 7 天</small>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box"><span>本周完成率</span><strong id="weekRate">0%</strong></div>
+          <div class="stat-box"><span>学习总时长</span><strong id="weekStudy">0分</strong></div>
+          <div class="stat-box"><span>健身次数</span><strong id="weekFitness">0</strong></div>
+          <div class="stat-box"><span>连续打卡</span><strong id="weekStreak">0天</strong></div>
+        </div>
+      </section>
+      <div class="split">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>学习趋势</h2>
+            <small>分钟</small>
+          </div>
+          <div class="chart" id="studyChart"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>健身趋势</h2>
+            <small>次数</small>
+          </div>
+          <div class="chart" id="fitnessChart"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">打卡成功，继续保持。</div>
+
+  <script>
+    const STORAGE_KEY = "daily-growth-plan-v1";
+    const quotes = [
+      "把该做的事做完，胜过一百次热血上头。",
+      "纪律不是束缚，是把自己拉回正轨的力量。",
+      "今天多坚持一组，明天多掌控一点人生。",
+      "少一点犹豫，多一次行动。",
+      "成长不靠情绪，靠每天都算数的执行。"
+    ];
+
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    };
+
+    const formatShortDate = (key) => {
+      const [, month, day] = key.split("-");
+      return `${Number(month)}/${Number(day)}`;
+    };
+
+    const defaultDay = () => ({
+      tasks: [],
+      studies: [],
+      fitness: [],
+      review: {
+        doneToday: "",
+        missReason: "",
+        tomorrowTop3: "",
+        selfScore: "",
+        oneSentence: ""
+      }
+    });
+
+    let data = loadData();
+    let currentDate = todayKey();
+    ensureDay(currentDate);
+
+    function loadData() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function ensureDay(key) {
+      if (!data[key]) data[key] = defaultDay();
+    }
+
+    function getDay(key = currentDate) {
+      ensureDay(key);
+      return data[key];
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById("toast");
+      toast.textContent = text;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    function recentKeys(days = 7) {
+      const keys = [];
+      const base = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(base);
+        d.setDate(base.getDate() - i);
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+      }
+      return keys;
+    }
+
+    function completionRate(day) {
+      if (!day.tasks.length) return 0;
+      return Math.round((day.tasks.filter(t => t.done).length / day.tasks.length) * 100);
+    }
+
+    function studyMinutes(day) {
+      return day.studies.reduce((sum, item) => sum + Number(item.minutes || 0), 0);
+    }
+
+    function isCheckedIn(day) {
+      return day.tasks.some(t => t.done) || day.studies.length > 0 || day.fitness.length > 0 || Boolean(day.review.oneSentence);
+    }
+
+    function streakCount() {
+      let streak = 0;
+      const cursor = new Date();
+      for (let i = 0; i < 365; i++) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+        if (data[key] && isCheckedIn(data[key])) {
+          streak++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+      return streak;
+    }
+
+    function priorityClass(priority) {
+      if (priority === "重要") return "high";
+      if (priority === "普通") return "mid";
+      return "low";
+    }
+
+    function renderDashboard() {
+      const now = new Date();
+      const day = getDay();
+      document.getElementById("dayNumber").textContent = now.getDate();
+      document.getElementById("monthText").textContent = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+      document.getElementById("todayRate").textContent = `${completionRate(day)}%`;
+      document.getElementById("studyTaskCount").textContent = day.tasks.filter(t => t.category === "学习").length;
+      document.getElementById("fitnessTaskCount").textContent = day.tasks.filter(t => t.category === "健身").length;
+      document.getElementById("streakDays").textContent = `${streakCount()}天`;
+      document.getElementById("todayStudyTotal").textContent = `${studyMinutes(day)}分`;
+      document.getElementById("quoteText").textContent = quotes[now.getDay() % quotes.length];
+    }
+
+    function renderTasks() {
+      const day = getDay();
+      const list = document.getElementById("taskList");
+      const done = day.tasks.filter(t => t.done).length;
+      document.getElementById("taskSummary").textContent = `${done} / ${day.tasks.length}`;
+      if (!day.tasks.length) {
+        list.innerHTML = `<div class="empty">今天还没有任务，先给自己一个明确目标。</div>`;
+        return;
+      }
+      list.innerHTML = day.tasks.map(task => `
+        <article class="item ${task.done ? "done" : "unfinished"}">
+          <input type="checkbox" ${task.done ? "checked" : ""} data-action="toggle-task" data-id="${task.id}" aria-label="完成任务" />
+          <div class="item-main">
+            <div class="item-name">${escapeHtml(task.name)}</div>
+            <div class="badges">
+              <span class="badge">${task.category}</span>
+              <span class="badge ${priorityClass(task.priority)}">${task.priority}</span>
+            </div>
+          </div>
+          <button class="mini-delete" data-action="delete-task" data-id="${task.id}" title="删除">删</button>
+        </article>
+      `).join("");
+    }
+
+    function renderStudies() {
+      const day = getDay();
+      document.getElementById("studyTotalLabel").textContent = `今日 ${studyMinutes(day)} 分钟`;
+      const list = document.getElementById("studyList");
+      if (!day.studies.length) {
+        list.innerHTML = `<div class="empty">还没有学习记录。记录下来，时间才会变成战绩。</div>`;
+        return;
+      }
+      list.innerHTML = day.studies.map(item => `
+        <article class="record-card">
+          <strong>${item.subject} · ${item.minutes} 分钟 · ${item.level}</strong>
+          <p>${escapeHtml(item.content)}</p>
+        </article>
+      `).join("");
+    }
+
+    function renderFitness() {
+      const day = getDay();
+      document.getElementById("fitnessTotalLabel").textContent = `${day.fitness.length} 次`;
+      const list = document.getElementById("fitnessList");
+      if (!day.fitness.length) {
+        list.innerHTML = `<div class="empty">今天还没有训练记录。休息也可以记录，关键是诚实。</div>`;
+        return;
+      }
+      list.innerHTML = day.fitness.map(item => `
+        <article class="record-card">
+          <strong>${item.type} · ${item.bodyState}</strong>
+          ${fitnessDetail(item)}
+          ${item.note ? `<p>备注：${escapeHtml(item.note)}</p>` : ""}
+        </article>
+      `).join("");
+    }
+
+    function fitnessDetail(item) {
+      if (item.type === "力量训练") {
+        return `<p>${escapeHtml(item.moveName || "未填写动作")} · ${item.weight || 0}kg · ${item.sets || 0}组 · ${item.reps || 0}次</p>`;
+      }
+      if (item.type === "跑步") {
+        return `<p>${item.distance || 0}km · 配速 ${escapeHtml(item.pace || "-")} · ${item.runMinutes || 0}分钟</p>`;
+      }
+      return `<p>${item.type === "休息" ? "主动恢复日" : "身体维护训练"}</p>`;
+    }
+
+    function renderReview() {
+      const review = getDay().review;
+      document.getElementById("doneToday").value = review.doneToday || "";
+      document.getElementById("missReason").value = review.missReason || "";
+      document.getElementById("tomorrowTop3").value = review.tomorrowTop3 || "";
+      document.getElementById("selfScore").value = review.selfScore || "";
+      document.getElementById("oneSentence").value = review.oneSentence || "";
+    }
+
+    function renderStats() {
+      const keys = recentKeys();
+      const days = keys.map(key => data[key] || defaultDay());
+      const allTasks = days.flatMap(day => day.tasks);
+      const doneTasks = allTasks.filter(t => t.done).length;
+      const weekRate = allTasks.length ? Math.round(doneTasks / allTasks.length * 100) : 0;
+      const weekStudy = days.reduce((sum, day) => sum + studyMinutes(day), 0);
+      const weekFitness = days.reduce((sum, day) => sum + day.fitness.length, 0);
+
+      document.getElementById("weekRate").textContent = `${weekRate}%`;
+      document.getElementById("weekStudy").textContent = `${weekStudy}分`;
+      document.getElementById("weekFitness").textContent = weekFitness;
+      document.getElementById("weekStreak").textContent = `${streakCount()}天`;
+
+      renderChart("studyChart", keys, keys.map(key => studyMinutes(data[key] || defaultDay())), "study");
+      renderChart("fitnessChart", keys, keys.map(key => (data[key] || defaultDay()).fitness.length), "fitness");
+    }
+
+    function renderChart(id, keys, values, type) {
+      const max = Math.max(...values, 1);
+      document.getElementById(id).innerHTML = keys.map((key, index) => {
+        const height = Math.max(6, Math.round(values[index] / max * 142));
+        return `
+          <div class="bar-wrap" title="${formatShortDate(key)}：${values[index]}">
+            <div class="bar ${type}" style="height:${height}px"></div>
+            <div class="bar-label">${formatShortDate(key)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderTasks();
+      renderStudies();
+      renderFitness();
+      renderReview();
+      renderStats();
+      saveData();
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+        document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(button.dataset.tab).classList.add("active");
+      });
+    });
+
+    document.getElementById("taskForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const name = document.getElementById("taskName").value.trim();
+      if (!name) return;
+      getDay().tasks.unshift({
+        id: uid(),
+        name,
+        category: document.getElementById("taskCategory").value,
+        priority: document.getElementById("taskPriority").value,
+        done: false
+      });
+      event.target.reset();
+      document.getElementById("taskPriority").value = "普通";
+      renderAll();
+    });
+
+    document.getElementById("taskList").addEventListener("click", event => {
+      const action = event.target.dataset.action;
+      const id = event.target.dataset.id;
+      if (!action || !id) return;
+      const day = getDay();
+      if (action === "toggle-task") {
+        const task = day.tasks.find(item => item.id === id);
+        if (task) {
+          task.done = event.target.checked;
+          if (task.done) showToast("打卡成功，任务已完成。");
+        }
+      }
+      if (action === "delete-task") {
+        day.tasks = day.tasks.filter(item => item.id !== id);
+      }
+      renderAll();
+    });
+
+    document.getElementById("studyForm").addEventListener("submit", event => {
+      event.preventDefault();
+      getDay().studies.unshift({
+        id: uid(),
+        subject: document.getElementById("studySubject").value,
+        minutes: Number(document.getElementById("studyMinutes").value || 0),
+        level: document.getElementById("studyLevel").value,
+        content: document.getElementById("studyContent").value.trim()
+      });
+      event.target.reset();
+      document.getElementById("studyLevel").value = "一般";
+      showToast("学习记录已保存。");
+      renderAll();
+    });
+
+    document.getElementById("trainingType").addEventListener("change", updateFitnessFields);
+
+    function updateFitnessFields() {
+      const type = document.getElementById("trainingType").value;
+      document.querySelectorAll(".strength-field").forEach(el => el.style.display = type === "力量训练" ? "grid" : "none");
+      document.querySelectorAll(".run-field").forEach(el => el.style.display = type === "跑步" ? "grid" : "none");
+    }
+
+    document.getElementById("fitnessForm").addEventListener("submit", event => {
+      event.preventDefault();
+      getDay().fitness.unshift({
+        id: uid(),
+        type: document.getElementById("trainingType").value,
+        bodyState: document.getElementById("bodyState").value,
+        moveName: document.getElementById("moveName").value.trim(),
+        weight: document.getElementById("weight").value,
+        sets: document.getElementById("sets").value,
+        reps: document.getElementById("reps").value,
+        distance: document.getElementById("distance").value,
+        pace: document.getElementById("pace").value.trim(),
+        runMinutes: document.getElementById("runMinutes").value,
+        note: document.getElementById("trainingNote").value.trim()
+      });
+      event.target.reset();
+      updateFitnessFields();
+      showToast("训练记录已保存。");
+      renderAll();
+    });
+
+    document.getElementById("reviewForm").addEventListener("submit", event => {
+      event.preventDefault();
+      getDay().review = {
+        doneToday: document.getElementById("doneToday").value.trim(),
+        missReason: document.getElementById("missReason").value.trim(),
+        tomorrowTop3: document.getElementById("tomorrowTop3").value.trim(),
+        selfScore: document.getElementById("selfScore").value,
+        oneSentence: document.getElementById("oneSentence").value.trim()
+      };
+      showToast("今日复盘已保存。");
+      renderAll();
+    });
+
+    updateFitnessFields();
+    renderAll();
+  </script>
+</body>
+</html>
