@@ -46,6 +46,11 @@
       cursor: pointer;
     }
 
+    button:disabled, input:disabled, select:disabled, textarea:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
     .app {
       width: min(1180px, 100%);
       margin: 0 auto;
@@ -64,6 +69,7 @@
       display: flex;
       flex-direction: column;
       gap: 5px;
+      min-width: 0;
     }
 
     .brand h1 {
@@ -98,6 +104,53 @@
     .date-pill small {
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .auth-panel {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(20, 26, 38, 0.96), rgba(12, 16, 23, 0.96));
+      box-shadow: var(--shadow);
+    }
+
+    .auth-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .auth-title strong {
+      font-size: 16px;
+    }
+
+    .auth-title span, .sync-status {
+      color: var(--muted);
+      font-size: 13px;
+      word-break: break-word;
+    }
+
+    .auth-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .auth-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .signed-in {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     .dashboard {
@@ -497,6 +550,15 @@
         font-size: 34px;
       }
 
+      .auth-grid {
+        grid-template-columns: 1fr 1fr auto;
+        align-items: end;
+      }
+
+      .auth-actions {
+        min-width: 220px;
+      }
+
       .dashboard {
         grid-template-columns: repeat(5, 1fr);
       }
@@ -569,6 +631,29 @@
         <small id="monthText">----</small>
       </div>
     </header>
+
+    <section class="auth-panel" aria-label="账号同步">
+      <div class="auth-title">
+        <strong>Firebase 云同步</strong>
+        <span id="syncStatus">请登录后同步数据</span>
+      </div>
+      <form class="auth-grid" id="authForm">
+        <label>邮箱
+          <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </label>
+        <label>密码
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required />
+        </label>
+        <div class="auth-actions">
+          <button class="primary-btn" id="loginBtn" type="submit">登录</button>
+          <button class="ghost-btn" id="registerBtn" type="button">注册</button>
+        </div>
+      </form>
+      <div class="signed-in" id="signedInBox">
+        <span class="sync-status" id="userLabel">已登录</span>
+        <button class="danger-btn" id="logoutBtn" type="button">退出登录</button>
+      </div>
+    </section>
 
     <section class="dashboard" aria-label="首页仪表盘">
       <div class="metric"><span>今日完成率</span><strong id="todayRate">0%</strong></div>
@@ -735,10 +820,10 @@
       <form class="panel" id="reviewForm">
         <div class="panel-title">
           <h2>每日复盘</h2>
-          <small>保存后自动进入统计</small>
+          <small>输入后自动保存</small>
         </div>
         <div class="review-fields">
-          <label>今日完成了什么
+          <label>今日完成了什么？
             <textarea id="doneToday" placeholder="写下今天真正完成的事"></textarea>
           </label>
           <label>没完成的原因
@@ -790,10 +875,40 @@
     </section>
   </main>
 
-  <div class="toast" id="toast">打卡成功，继续保持。</div>
+  <div class="toast" id="toast">保存成功，继续保持。</div>
 
-  <script>
-    const STORAGE_KEY = "daily-growth-plan-v1";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      serverTimestamp,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgSw2utaKCwcp7QaDhh6v2UGCnWWWu3CM",
+      authDomain: "daily-planner-fdc95.firebaseapp.com",
+      projectId: "daily-planner-fdc95",
+      storageBucket: "daily-planner-fdc95.firebasestorage.app",
+      messagingSenderId: "126971085477",
+      appId: "1:126971085477:web:a416b1ef17d1cf2f74434c",
+      measurementId: "G-EZRFKQ8KWJ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
     const quotes = [
       "把该做的事做完，胜过一百次热血上头。",
       "纪律不是束缚，是把自己拉回正轨的力量。",
@@ -802,56 +917,70 @@
       "成长不靠情绪，靠每天都算数的执行。"
     ];
 
-    const todayKey = () => {
+    const state = {
+      user: null,
+      data: {},
+      currentDate: todayKey(),
+      unsubscribeDays: null,
+      syncingFromCloud: false,
+      saveTimers: new Map()
+    };
+
+    function todayKey() {
       const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    };
-
-    const formatShortDate = (key) => {
-      const [, month, day] = key.split("-");
-      return `${Number(month)}/${Number(day)}`;
-    };
-
-    const defaultDay = () => ({
-      tasks: [],
-      studies: [],
-      fitness: [],
-      review: {
-        doneToday: "",
-        missReason: "",
-        tomorrowTop3: "",
-        selfScore: "",
-        oneSentence: ""
-      }
-    });
-
-    let data = loadData();
-    let currentDate = todayKey();
-    ensureDay(currentDate);
-
-    function loadData() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-      } catch {
-        return {};
-      }
+      return keyFromDate(d);
     }
 
-    function saveData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    function keyFromDate(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function formatShortDate(key) {
+      const [, month, day] = key.split("-");
+      return `${Number(month)}/${Number(day)}`;
+    }
+
+    function defaultDay() {
+      return {
+        tasks: [],
+        studies: [],
+        fitness: [],
+        review: {
+          doneToday: "",
+          missReason: "",
+          tomorrowTop3: "",
+          selfScore: "",
+          oneSentence: ""
+        }
+      };
+    }
+
+    function normalizeDay(day = {}) {
+      const base = defaultDay();
+      return {
+        tasks: Array.isArray(day.tasks) ? day.tasks : base.tasks,
+        studies: Array.isArray(day.studies) ? day.studies : base.studies,
+        fitness: Array.isArray(day.fitness) ? day.fitness : base.fitness,
+        review: { ...base.review, ...(day.review || {}) }
+      };
     }
 
     function ensureDay(key) {
-      if (!data[key]) data[key] = defaultDay();
+      if (!state.data[key]) state.data[key] = defaultDay();
     }
 
-    function getDay(key = currentDate) {
+    function getDay(key = state.currentDate) {
       ensureDay(key);
-      return data[key];
+      return state.data[key];
     }
 
-    function uid() {
+    function makeId() {
       return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function dayDocRef(key = state.currentDate) {
+      if (!state.user) return null;
+      return doc(db, "users", state.user.uid, "days", key);
     }
 
     function showToast(text) {
@@ -861,13 +990,22 @@
       setTimeout(() => toast.classList.remove("show"), 1800);
     }
 
+    function setSyncStatus(text) {
+      document.getElementById("syncStatus").textContent = text;
+    }
+
+    function setAppEnabled(enabled) {
+      document.querySelectorAll("#taskForm input, #taskForm select, #taskForm button, #studyForm input, #studyForm select, #studyForm textarea, #studyForm button, #fitnessForm input, #fitnessForm select, #fitnessForm textarea, #fitnessForm button, #reviewForm input, #reviewForm textarea, #reviewForm button")
+        .forEach(el => el.disabled = !enabled);
+    }
+
     function recentKeys(days = 7) {
       const keys = [];
       const base = new Date();
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(base);
         d.setDate(base.getDate() - i);
-        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+        keys.push(keyFromDate(d));
       }
       return keys;
     }
@@ -889,8 +1027,8 @@
       let streak = 0;
       const cursor = new Date();
       for (let i = 0; i < 365; i++) {
-        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
-        if (data[key] && isCheckedIn(data[key])) {
+        const key = keyFromDate(cursor);
+        if (state.data[key] && isCheckedIn(state.data[key])) {
           streak++;
           cursor.setDate(cursor.getDate() - 1);
         } else {
@@ -904,6 +1042,63 @@
       if (priority === "重要") return "high";
       if (priority === "普通") return "mid";
       return "low";
+    }
+
+    function scheduleSaveDay(key = state.currentDate, delay = 250) {
+      if (!state.user || state.syncingFromCloud) return;
+      clearTimeout(state.saveTimers.get(key));
+      const timer = setTimeout(() => saveDay(key), delay);
+      state.saveTimers.set(key, timer);
+      setSyncStatus("正在保存到云端...");
+    }
+
+    async function saveDay(key = state.currentDate) {
+      if (!state.user) return;
+      const ref = dayDocRef(key);
+      if (!ref) return;
+      try {
+        await setDoc(ref, {
+          ...normalizeDay(state.data[key]),
+          date: key,
+          ownerUid: state.user.uid,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        setSyncStatus(`已同步：${state.user.email}`);
+      } catch (error) {
+        setSyncStatus(`同步失败：${friendlyError(error)}`);
+        showToast(`同步失败：${friendlyError(error)}`);
+      }
+    }
+
+    function listenToUserDays(user) {
+      if (state.unsubscribeDays) state.unsubscribeDays();
+      state.syncingFromCloud = true;
+      setSyncStatus("正在连接云端数据...");
+
+      const daysRef = collection(db, "users", user.uid, "days");
+      state.unsubscribeDays = onSnapshot(daysRef, snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === "removed") {
+            delete state.data[change.doc.id];
+            return;
+          }
+          state.data[change.doc.id] = normalizeDay(change.doc.data());
+        });
+
+        ensureDay(state.currentDate);
+        state.syncingFromCloud = false;
+        renderAll();
+        setAppEnabled(true);
+        setSyncStatus(`已实时同步：${user.email}`);
+
+        if (!snapshot.docs.some(item => item.id === state.currentDate)) {
+          scheduleSaveDay(state.currentDate, 0);
+        }
+      }, error => {
+        state.syncingFromCloud = false;
+        setAppEnabled(false);
+        setSyncStatus(`监听失败：${friendlyError(error)}`);
+      });
     }
 
     function renderDashboard() {
@@ -934,8 +1129,8 @@
           <div class="item-main">
             <div class="item-name">${escapeHtml(task.name)}</div>
             <div class="badges">
-              <span class="badge">${task.category}</span>
-              <span class="badge ${priorityClass(task.priority)}">${task.priority}</span>
+              <span class="badge">${escapeHtml(task.category)}</span>
+              <span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span>
             </div>
           </div>
           <button class="mini-delete" data-action="delete-task" data-id="${task.id}" title="删除">删</button>
@@ -953,7 +1148,7 @@
       }
       list.innerHTML = day.studies.map(item => `
         <article class="record-card">
-          <strong>${item.subject} · ${item.minutes} 分钟 · ${item.level}</strong>
+          <strong>${escapeHtml(item.subject)} · ${Number(item.minutes || 0)} 分钟 · ${escapeHtml(item.level)}</strong>
           <p>${escapeHtml(item.content)}</p>
         </article>
       `).join("");
@@ -969,7 +1164,7 @@
       }
       list.innerHTML = day.fitness.map(item => `
         <article class="record-card">
-          <strong>${item.type} · ${item.bodyState}</strong>
+          <strong>${escapeHtml(item.type)} · ${escapeHtml(item.bodyState)}</strong>
           ${fitnessDetail(item)}
           ${item.note ? `<p>备注：${escapeHtml(item.note)}</p>` : ""}
         </article>
@@ -978,15 +1173,19 @@
 
     function fitnessDetail(item) {
       if (item.type === "力量训练") {
-        return `<p>${escapeHtml(item.moveName || "未填写动作")} · ${item.weight || 0}kg · ${item.sets || 0}组 · ${item.reps || 0}次</p>`;
+        return `<p>${escapeHtml(item.moveName || "未填写动作")} · ${escapeHtml(item.weight || 0)}kg · ${escapeHtml(item.sets || 0)}组 · ${escapeHtml(item.reps || 0)}次</p>`;
       }
       if (item.type === "跑步") {
-        return `<p>${item.distance || 0}km · 配速 ${escapeHtml(item.pace || "-")} · ${item.runMinutes || 0}分钟</p>`;
+        return `<p>${escapeHtml(item.distance || 0)}km · 配速 ${escapeHtml(item.pace || "-")} · ${escapeHtml(item.runMinutes || 0)}分钟</p>`;
       }
       return `<p>${item.type === "休息" ? "主动恢复日" : "身体维护训练"}</p>`;
     }
 
     function renderReview() {
+      const active = document.activeElement;
+      const reviewFieldIds = ["doneToday", "missReason", "tomorrowTop3", "selfScore", "oneSentence"];
+      if (reviewFieldIds.includes(active?.id)) return;
+
       const review = getDay().review;
       document.getElementById("doneToday").value = review.doneToday || "";
       document.getElementById("missReason").value = review.missReason || "";
@@ -997,7 +1196,7 @@
 
     function renderStats() {
       const keys = recentKeys();
-      const days = keys.map(key => data[key] || defaultDay());
+      const days = keys.map(key => state.data[key] || defaultDay());
       const allTasks = days.flatMap(day => day.tasks);
       const doneTasks = allTasks.filter(t => t.done).length;
       const weekRate = allTasks.length ? Math.round(doneTasks / allTasks.length * 100) : 0;
@@ -1009,8 +1208,8 @@
       document.getElementById("weekFitness").textContent = weekFitness;
       document.getElementById("weekStreak").textContent = `${streakCount()}天`;
 
-      renderChart("studyChart", keys, keys.map(key => studyMinutes(data[key] || defaultDay())), "study");
-      renderChart("fitnessChart", keys, keys.map(key => (data[key] || defaultDay()).fitness.length), "fitness");
+      renderChart("studyChart", keys, keys.map(key => studyMinutes(state.data[key] || defaultDay())), "study");
+      renderChart("fitnessChart", keys, keys.map(key => (state.data[key] || defaultDay()).fitness.length), "fitness");
     }
 
     function renderChart(id, keys, values, type) {
@@ -1033,7 +1232,6 @@
       renderFitness();
       renderReview();
       renderStats();
-      saveData();
     }
 
     function escapeHtml(value) {
@@ -1045,6 +1243,20 @@
         .replaceAll("'", "&#039;");
     }
 
+    function friendlyError(error) {
+      const code = error?.code || "";
+      const messages = {
+        "auth/email-already-in-use": "这个邮箱已经注册",
+        "auth/invalid-email": "邮箱格式不正确",
+        "auth/invalid-credential": "邮箱或密码错误",
+        "auth/weak-password": "密码至少需要 6 位",
+        "auth/missing-password": "请输入密码",
+        "permission-denied": "Firestore 权限不足，请检查规则",
+        "unavailable": "网络暂时不可用"
+      };
+      return messages[code] || error?.message || "未知错误";
+    }
+
     document.querySelectorAll(".tab-btn").forEach(button => {
       button.addEventListener("click", () => {
         document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
@@ -1054,31 +1266,67 @@
       });
     });
 
+    document.getElementById("authForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      try {
+        setSyncStatus("正在登录...");
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        setSyncStatus(`登录失败：${friendlyError(error)}`);
+        showToast(`登录失败：${friendlyError(error)}`);
+      }
+    });
+
+    document.getElementById("registerBtn").addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      try {
+        setSyncStatus("正在注册...");
+        await createUserWithEmailAndPassword(auth, email, password);
+        showToast("注册成功，已登录。");
+      } catch (error) {
+        setSyncStatus(`注册失败：${friendlyError(error)}`);
+        showToast(`注册失败：${friendlyError(error)}`);
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+      showToast("已退出登录。");
+    });
+
     document.getElementById("taskForm").addEventListener("submit", event => {
       event.preventDefault();
+      if (!state.user) return showToast("请先登录。");
       const name = document.getElementById("taskName").value.trim();
       if (!name) return;
       getDay().tasks.unshift({
-        id: uid(),
+        id: makeId(),
         name,
         category: document.getElementById("taskCategory").value,
         priority: document.getElementById("taskPriority").value,
-        done: false
+        done: false,
+        createdAt: Date.now()
       });
       event.target.reset();
       document.getElementById("taskPriority").value = "普通";
       renderAll();
+      scheduleSaveDay();
     });
 
     document.getElementById("taskList").addEventListener("click", event => {
       const action = event.target.dataset.action;
       const id = event.target.dataset.id;
       if (!action || !id) return;
+      if (!state.user) return showToast("请先登录。");
       const day = getDay();
       if (action === "toggle-task") {
         const task = day.tasks.find(item => item.id === id);
         if (task) {
           task.done = event.target.checked;
+          task.updatedAt = Date.now();
           if (task.done) showToast("打卡成功，任务已完成。");
         }
       }
@@ -1086,21 +1334,25 @@
         day.tasks = day.tasks.filter(item => item.id !== id);
       }
       renderAll();
+      scheduleSaveDay();
     });
 
     document.getElementById("studyForm").addEventListener("submit", event => {
       event.preventDefault();
+      if (!state.user) return showToast("请先登录。");
       getDay().studies.unshift({
-        id: uid(),
+        id: makeId(),
         subject: document.getElementById("studySubject").value,
         minutes: Number(document.getElementById("studyMinutes").value || 0),
         level: document.getElementById("studyLevel").value,
-        content: document.getElementById("studyContent").value.trim()
+        content: document.getElementById("studyContent").value.trim(),
+        createdAt: Date.now()
       });
       event.target.reset();
       document.getElementById("studyLevel").value = "一般";
       showToast("学习记录已保存。");
       renderAll();
+      scheduleSaveDay();
     });
 
     document.getElementById("trainingType").addEventListener("change", updateFitnessFields);
@@ -1113,8 +1365,9 @@
 
     document.getElementById("fitnessForm").addEventListener("submit", event => {
       event.preventDefault();
+      if (!state.user) return showToast("请先登录。");
       getDay().fitness.unshift({
-        id: uid(),
+        id: makeId(),
         type: document.getElementById("trainingType").value,
         bodyState: document.getElementById("bodyState").value,
         moveName: document.getElementById("moveName").value.trim(),
@@ -1124,16 +1377,17 @@
         distance: document.getElementById("distance").value,
         pace: document.getElementById("pace").value.trim(),
         runMinutes: document.getElementById("runMinutes").value,
-        note: document.getElementById("trainingNote").value.trim()
+        note: document.getElementById("trainingNote").value.trim(),
+        createdAt: Date.now()
       });
       event.target.reset();
       updateFitnessFields();
       showToast("训练记录已保存。");
       renderAll();
+      scheduleSaveDay();
     });
 
-    document.getElementById("reviewForm").addEventListener("submit", event => {
-      event.preventDefault();
+    function readReviewFromForm() {
       getDay().review = {
         doneToday: document.getElementById("doneToday").value.trim(),
         missReason: document.getElementById("missReason").value.trim(),
@@ -1141,11 +1395,54 @@
         selfScore: document.getElementById("selfScore").value,
         oneSentence: document.getElementById("oneSentence").value.trim()
       };
+    }
+
+    document.getElementById("reviewForm").addEventListener("submit", event => {
+      event.preventDefault();
+      if (!state.user) return showToast("请先登录。");
+      readReviewFromForm();
       showToast("今日复盘已保存。");
       renderAll();
+      scheduleSaveDay();
+    });
+
+    ["doneToday", "missReason", "tomorrowTop3", "selfScore", "oneSentence"].forEach(id => {
+      document.getElementById(id).addEventListener("input", () => {
+        if (!state.user) return;
+        readReviewFromForm();
+        renderDashboard();
+        renderStats();
+        scheduleSaveDay(state.currentDate, 700);
+      });
+    });
+
+    onAuthStateChanged(auth, user => {
+      state.user = user;
+      state.data = {};
+      state.currentDate = todayKey();
+      ensureDay(state.currentDate);
+
+      if (state.unsubscribeDays) {
+        state.unsubscribeDays();
+        state.unsubscribeDays = null;
+      }
+
+      document.getElementById("authForm").style.display = user ? "none" : "grid";
+      document.getElementById("signedInBox").style.display = user ? "flex" : "none";
+      document.getElementById("userLabel").textContent = user ? `当前账号：${user.email}` : "未登录";
+
+      if (user) {
+        setAppEnabled(false);
+        listenToUserDays(user);
+      } else {
+        setAppEnabled(false);
+        setSyncStatus("请登录后同步数据");
+        renderAll();
+      }
     });
 
     updateFitnessFields();
+    setAppEnabled(false);
     renderAll();
   </script>
 </body>
