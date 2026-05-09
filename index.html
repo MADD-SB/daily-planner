@@ -788,6 +788,7 @@
       doc,
       getDocs,
       getDoc,
+      onSnapshot,
       setDoc,
       deleteDoc,
       writeBatch,
@@ -839,7 +840,9 @@
       user: null,
       ready: false,
       loading: false,
-      applyingRemote: false
+      applyingRemote: false,
+      unsubTransactions: null,
+      unsubSettings: null
     };
 
     const charts = {};
@@ -958,6 +961,7 @@
     function initAuthSync() {
       updateSyncStatus("未登录，仅本地保存");
       onAuthStateChanged(auth, async (user) => {
+        stopCloudListeners();
         cloud.user = user;
         cloud.ready = Boolean(user);
         if (!user) {
@@ -969,6 +973,7 @@
         updateSyncStatus("正在读取云端数据...", "busy");
         try {
           await loadCloudDataAndMaybeMigrate();
+          startCloudListeners();
           updateSyncStatus("云同步已开启", "online");
         } catch (error) {
           console.error(error);
@@ -990,6 +995,7 @@
     }
 
     async function logout() {
+      stopCloudListeners();
       await signOut(auth);
       cloud.user = null;
       cloud.ready = false;
@@ -1009,6 +1015,65 @@
     function handleCloudWriteError(error) {
       console.error(error);
       updateSyncStatus("云同步失败，已保存在本地", "busy");
+    }
+
+    function startCloudListeners() {
+      if (!cloud.user) return;
+      stopCloudListeners();
+      const transactionsRef = collection(db, "users", cloud.user.uid, "transactions");
+      const settingsRef = doc(db, "users", cloud.user.uid, "settings", "main");
+
+      cloud.unsubTransactions = onSnapshot(transactionsRef, (snapshot) => {
+        const bills = snapshot.docs.map((item) => normalizeBill({ id: item.id, ...item.data() })).filter(Boolean);
+        applyRemoteTransactions(bills);
+        updateSyncStatus("云同步已开启", "online");
+      }, handleRealtimeError);
+
+      cloud.unsubSettings = onSnapshot(settingsRef, (snapshot) => {
+        applyRemoteSettings(snapshot.exists() ? snapshot.data() : {});
+        updateSyncStatus("云同步已开启", "online");
+      }, handleRealtimeError);
+    }
+
+    function stopCloudListeners() {
+      if (cloud.unsubTransactions) cloud.unsubTransactions();
+      if (cloud.unsubSettings) cloud.unsubSettings();
+      cloud.unsubTransactions = null;
+      cloud.unsubSettings = null;
+    }
+
+    function handleRealtimeError(error) {
+      console.error(error);
+      updateSyncStatus("云同步异常，请刷新或重新登录", "busy");
+    }
+
+    function applyRemoteTransactions(bills) {
+      cloud.applyingRemote = true;
+      state.bills = bills.map(normalizeBill).filter(Boolean);
+      saveBills();
+      cloud.applyingRemote = false;
+      renderAll();
+    }
+
+    function applyRemoteSettings(settings) {
+      cloud.applyingRemote = true;
+      state.budgets = normalizeCloudBudgets(settings.monthlyBudget);
+      state.fixedExpenses = normalizeFixedExpenses(settings.fixedExpenses);
+      state.savingGoal = normalizeSavingGoal({
+        target: settings.savingGoal,
+        current: settings.currentSaving
+      });
+      state.totalFunds = normalizeTotalFunds(settings.totalFunds);
+      saveBudgets();
+      saveFixedExpenses();
+      saveSavingGoal();
+      saveTotalFunds();
+      els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
+      els.fundsInput.value = state.totalFunds || "";
+      els.savingTarget.value = state.savingGoal.target || "";
+      els.savingCurrent.value = state.savingGoal.current || "";
+      cloud.applyingRemote = false;
+      renderAll();
     }
 
     async function loadCloudDataAndMaybeMigrate() {
@@ -1116,6 +1181,7 @@
       if (!cloud.user || cloud.applyingRemote) return;
       updateSyncStatus("正在同步...", "busy");
       await deleteDoc(doc(db, "users", cloud.user.uid, "transactions", id));
+      await cloudSaveSettings();
       updateSyncStatus("云同步已开启", "online");
     }
 
