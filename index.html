@@ -158,6 +158,32 @@
       gap: 12px;
       margin-bottom: 16px;
     }
+    .total-funds-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 20px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(15, 93, 82, .16);
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 18px 46px rgba(15, 93, 82, .12);
+    }
+    .total-funds-card span { display: block; color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+    .total-funds-card strong {
+      display: block;
+      color: var(--primary);
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1;
+      overflow-wrap: anywhere;
+    }
+    .funds-form {
+      display: grid;
+      grid-template-columns: 170px auto;
+      gap: 8px;
+      align-items: end;
+    }
     .metric-card, .panel, .mini-panel {
       background: var(--card);
       border: 1px solid var(--line);
@@ -478,6 +504,8 @@
         scrollbar-width: none;
       }
       .overview-grid::-webkit-scrollbar { display: none; }
+      .total-funds-card { grid-template-columns: 1fr; }
+      .funds-form { grid-template-columns: 1fr; }
       .metric-card strong { font-size: 21px; }
       .stats-grid, .report-grid, .budget-grid, .tag-grid, .discipline-grid, .report-metrics {
         grid-template-columns: 1fr;
@@ -517,6 +545,19 @@
     </header>
 
     <section id="homeView" class="view active">
+      <article class="total-funds-card">
+        <div>
+          <span>现有资金总额</span>
+          <strong id="totalFunds">¥0.00</strong>
+        </div>
+        <form id="fundsForm" class="funds-form">
+          <div class="field">
+            <label for="fundsInput">设置当前总资金</label>
+            <input id="fundsInput" type="number" inputmode="decimal" step="0.01" placeholder="例如 12800" />
+          </div>
+          <button class="btn" type="submit">保存</button>
+        </form>
+      </article>
       <section class="overview-grid" aria-label="财务总览">
         <article class="metric-card"><span>今日支出</span><strong id="todayExpense" class="expense-text">¥0.00</strong><small id="todayCount">0 笔</small></article>
         <article class="metric-card"><span>本月支出</span><strong id="monthExpense" class="expense-text">¥0.00</strong><small>支出总额</small></article>
@@ -771,6 +812,7 @@
     const BUDGET_KEY = "personal-budgets-v1";
     const FIXED_KEY = "personal-fixed-expenses-v1";
     const SAVING_KEY = "personal-saving-goal-v1";
+    const FUNDS_KEY = "personal-total-funds-v1";
 
     const expenseCategories = {
       "餐饮": "🍜", "交通": "🚌", "房租": "🏠", "水电": "💡", "健身": "🏋️", "学习": "📚",
@@ -787,6 +829,7 @@
       budgets: loadBudgets(),
       fixedExpenses: loadFixedExpenses(),
       savingGoal: loadSavingGoal(),
+      totalFunds: loadTotalFunds(),
       selectedMonth: formatMonth(new Date()),
       activeView: "homeView",
       searchText: ""
@@ -811,6 +854,7 @@
       bindEvents();
       els.monthFilter.value = state.selectedMonth;
       els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
+      els.fundsInput.value = state.totalFunds || "";
       els.savingTarget.value = state.savingGoal.target || "";
       els.savingCurrent.value = state.savingGoal.current || "";
       updateCategoryAndTagOptions();
@@ -839,6 +883,8 @@
         pageSubtitle: document.querySelector("#pageSubtitle"),
         budgetForm: document.querySelector("#budgetForm"),
         budgetInput: document.querySelector("#budgetInput"),
+        fundsForm: document.querySelector("#fundsForm"),
+        fundsInput: document.querySelector("#fundsInput"),
         savingForm: document.querySelector("#savingForm"),
         savingTarget: document.querySelector("#savingTarget"),
         savingCurrent: document.querySelector("#savingCurrent"),
@@ -874,6 +920,7 @@
         renderAll();
       });
       els.budgetForm.addEventListener("submit", saveBudget);
+      els.fundsForm.addEventListener("submit", saveTotalFundsFromForm);
       els.savingForm.addEventListener("submit", saveSavingGoalFromForm);
       els.fixedForm.addEventListener("submit", saveFixedExpense);
       els.searchInput.addEventListener("input", () => {
@@ -959,11 +1006,16 @@
       els.logoutBtn.style.display = cloud.user ? "inline-flex" : "none";
     }
 
+    function handleCloudWriteError(error) {
+      console.error(error);
+      updateSyncStatus("云同步失败，已保存在本地", "busy");
+    }
+
     async function loadCloudDataAndMaybeMigrate() {
       const localSnapshot = getLocalSnapshot();
       const remoteSnapshot = await readCloudSnapshot();
-      const hasLocalData = localSnapshot.bills.length || Object.keys(localSnapshot.budgets).length || localSnapshot.savingGoal.target || localSnapshot.savingGoal.current;
-      const hasRemoteData = remoteSnapshot.bills.length || Object.keys(remoteSnapshot.budgets).length || remoteSnapshot.savingGoal.target || remoteSnapshot.savingGoal.current;
+      const hasLocalData = localSnapshot.bills.length || Object.keys(localSnapshot.budgets).length || localSnapshot.savingGoal.target || localSnapshot.savingGoal.current || localSnapshot.totalFunds;
+      const hasRemoteData = remoteSnapshot.bills.length || Object.keys(remoteSnapshot.budgets).length || remoteSnapshot.savingGoal.target || remoteSnapshot.savingGoal.current || remoteSnapshot.totalFunds;
 
       if (hasLocalData && !hasRemoteData) {
         const shouldMigrate = confirm("检测到本地已有旧数据，是否迁移到云端以便手机和电脑同步？");
@@ -1002,7 +1054,8 @@
         savingGoal: normalizeSavingGoal({
           target: settings.savingGoal,
           current: settings.currentSaving
-        })
+        }),
+        totalFunds: normalizeTotalFunds(settings.totalFunds)
       };
     }
 
@@ -1012,11 +1065,14 @@
       state.budgets = normalizeBudgets(snapshot.budgets);
       state.fixedExpenses = normalizeFixedExpenses(snapshot.fixedExpenses);
       state.savingGoal = normalizeSavingGoal(snapshot.savingGoal);
+      state.totalFunds = normalizeTotalFunds(snapshot.totalFunds);
       saveBills();
       saveBudgets();
       saveFixedExpenses();
       saveSavingGoal();
+      saveTotalFunds();
       els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
+      els.fundsInput.value = state.totalFunds || "";
       els.savingTarget.value = state.savingGoal.target || "";
       els.savingCurrent.value = state.savingGoal.current || "";
       cloud.applyingRemote = false;
@@ -1028,7 +1084,8 @@
         bills: state.bills.map(normalizeBill).filter(Boolean),
         budgets: normalizeBudgets(state.budgets),
         fixedExpenses: normalizeFixedExpenses(state.fixedExpenses),
-        savingGoal: normalizeSavingGoal(state.savingGoal)
+        savingGoal: normalizeSavingGoal(state.savingGoal),
+        totalFunds: normalizeTotalFunds(state.totalFunds)
       };
     }
 
@@ -1041,7 +1098,8 @@
         bills: [...billsById.values()].map(normalizeBill).filter(Boolean),
         budgets: normalizeBudgets({ ...remoteSnapshot.budgets, ...localSnapshot.budgets }),
         fixedExpenses: normalizeFixedExpenses([...fixedByName.values()]),
-        savingGoal: normalizeSavingGoal(localSnapshot.savingGoal.target || localSnapshot.savingGoal.current ? localSnapshot.savingGoal : remoteSnapshot.savingGoal)
+        savingGoal: normalizeSavingGoal(localSnapshot.savingGoal.target || localSnapshot.savingGoal.current ? localSnapshot.savingGoal : remoteSnapshot.savingGoal),
+        totalFunds: normalizeTotalFunds(localSnapshot.totalFunds || remoteSnapshot.totalFunds)
       };
     }
 
@@ -1106,6 +1164,7 @@
         monthlyBudget: snapshot.budgets,
         savingGoal: Number(snapshot.savingGoal.target || 0),
         currentSaving: Number(snapshot.savingGoal.current || 0),
+        totalFunds: Number(snapshot.totalFunds || 0),
         fixedExpenses: snapshot.fixedExpenses,
         updatedAt: serverTimestamp()
       };
@@ -1121,6 +1180,7 @@
       const categoryTotals = getCategoryTotals(expenses);
       const topCategory = getTopCategory(categoryTotals);
 
+      renderTotalFunds();
       renderOverview(monthBills, monthExpense, monthIncome, balance, topCategory);
       renderBudget(monthExpense);
       renderCategoryDonut(categoryTotals, monthExpense);
@@ -1150,6 +1210,10 @@
       const budget = getBudgetForMonth(state.selectedMonth);
       setText("budgetRemain", budget ? money(budget - monthExpense) : "未设置");
       setText("budgetMiniNote", budget ? `预算 ${money(budget)}` : "设置预算后显示");
+    }
+
+    function renderTotalFunds() {
+      setText("totalFunds", money(state.totalFunds));
     }
 
     function renderBudget(monthExpense) {
@@ -1375,12 +1439,14 @@
         createdAt: new Date().toISOString()
       };
       state.bills.push(bill);
+      state.totalFunds = applyBillToFunds(state.totalFunds, bill);
       saveBills();
-      await cloudUpsertTransaction(bill);
+      saveTotalFunds();
       amountInput.value = "";
       getFormField(form, "note").value = "";
       showMessage(form, "已记录", "success");
       renderAll();
+      cloudUpsertTransaction(bill).catch(handleCloudWriteError);
       if (form.id === "drawerBillForm") window.setTimeout(closeDrawer, 380);
     }
 
@@ -1416,6 +1482,16 @@
       renderAll();
     }
 
+    async function saveTotalFundsFromForm(event) {
+      event.preventDefault();
+      const value = Number(els.fundsInput.value);
+      if (!els.fundsInput.value.trim() || Number.isNaN(value)) return;
+      state.totalFunds = roundMoney(value);
+      saveTotalFunds();
+      renderAll();
+      cloudSaveSettings().catch(handleCloudWriteError);
+    }
+
     async function saveSavingGoalFromForm(event) {
       event.preventDefault();
       state.savingGoal = normalizeSavingGoal({ target: els.savingTarget.value, current: els.savingCurrent.value });
@@ -1439,14 +1515,17 @@
     }
 
     async function deleteBill(id) {
+      const deletedBill = state.bills.find((bill) => bill.id === id);
       state.bills = state.bills.filter((bill) => bill.id !== id);
+      if (deletedBill) state.totalFunds = reverseBillFromFunds(state.totalFunds, deletedBill);
       saveBills();
-      await cloudDeleteTransaction(id);
+      saveTotalFunds();
       renderAll();
+      cloudDeleteTransaction(id).catch(handleCloudWriteError);
     }
 
     function exportData() {
-      const payload = { app: "personal-wealth-discipline", exportedAt: new Date().toISOString(), bills: state.bills, budgets: state.budgets, fixedExpenses: state.fixedExpenses, savingGoal: state.savingGoal };
+      const payload = { app: "personal-wealth-discipline", exportedAt: new Date().toISOString(), bills: state.bills, budgets: state.budgets, fixedExpenses: state.fixedExpenses, savingGoal: state.savingGoal, totalFunds: state.totalFunds };
       const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
       const link = document.createElement("a");
       link.href = url;
@@ -1468,9 +1547,11 @@
           state.budgets = normalizeBudgets(parsed.budgets);
           state.fixedExpenses = normalizeFixedExpenses(parsed.fixedExpenses);
           state.savingGoal = normalizeSavingGoal(parsed.savingGoal);
-          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
+          state.totalFunds = normalizeTotalFunds(parsed.totalFunds);
+          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds();
           await cloudReplaceAllData();
           els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
+          els.fundsInput.value = state.totalFunds || "";
           els.savingTarget.value = state.savingGoal.target || "";
           els.savingCurrent.value = state.savingGoal.current || "";
           renderAll();
@@ -1490,7 +1571,8 @@
       state.budgets = {};
       state.fixedExpenses = [];
       state.savingGoal = { target: 0, current: 0 };
-      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
+      state.totalFunds = 0;
+      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds();
       await cloudReplaceAllData();
       renderAll();
     }
@@ -1535,6 +1617,10 @@
       try { return normalizeSavingGoal(JSON.parse(localStorage.getItem(SAVING_KEY) || "{}")); } catch { return { target: 0, current: 0 }; }
     }
     function saveSavingGoal() { localStorage.setItem(SAVING_KEY, JSON.stringify(state.savingGoal)); }
+    function loadTotalFunds() {
+      try { return normalizeTotalFunds(JSON.parse(localStorage.getItem(FUNDS_KEY) || "0")); } catch { return 0; }
+    }
+    function saveTotalFunds() { localStorage.setItem(FUNDS_KEY, JSON.stringify(state.totalFunds)); }
 
     function normalizeBill(bill) {
       if (!bill || typeof bill !== "object") return null;
@@ -1588,6 +1674,18 @@
       const target = Number(goal.target || 0);
       const current = Number(goal.current || 0);
       return { target: Number.isFinite(target) ? Math.max(roundMoney(target), 0) : 0, current: Number.isFinite(current) ? Math.max(roundMoney(current), 0) : 0 };
+    }
+    function normalizeTotalFunds(value) {
+      const amount = Number(value || 0);
+      return Number.isFinite(amount) ? roundMoney(amount) : 0;
+    }
+    function applyBillToFunds(total, bill) {
+      const signedAmount = bill.type === "income" ? bill.amount : -bill.amount;
+      return roundMoney(Number(total || 0) + signedAmount);
+    }
+    function reverseBillFromFunds(total, bill) {
+      const signedAmount = bill.type === "income" ? -bill.amount : bill.amount;
+      return roundMoney(Number(total || 0) + signedAmount);
     }
 
     function getBillsByMonth(month) { return state.bills.filter((bill) => bill.date.startsWith(month)); }
