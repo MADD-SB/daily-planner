@@ -1,1386 +1,386 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <link rel="apple-touch-icon" href="./Commit%20changes.png">
-<link rel="icon" type="image/png" href="./Commit%20changes.png">
 
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="财富纪律">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#006b2f">
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>个人财富纪律系统</title>
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
-  <style>
-    :root {
-      --bg: #f4f6f5;
-      --card: #ffffff;
-      --card-soft: #f8faf9;
-      --text: #14211f;
-      --muted: #6c7975;
-      --line: #e2e8e5;
-      --primary: #0f5d52;
-      --primary-2: #0b7a68;
-      --income: #16875c;
-      --expense: #d95845;
-      --warning: #c47a13;
-      --blue: #256f8f;
-      --shadow: 0 14px 34px rgba(18, 33, 31, 0.08);
-      --radius: 14px;
-    }
-
-    * { box-sizing: border-box; }
-    html { overflow-x: hidden; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      overflow-x: hidden;
-      color: var(--text);
-      background: var(--bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-      letter-spacing: 0;
-    }
-    button, input, select, textarea { font: inherit; }
-    button { border: 0; cursor: pointer; }
-
-    .app {
-      width: min(1320px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 22px 0 108px;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 18px;
-    }
-    .brand h1 { margin: 0; font-size: 26px; line-height: 1.2; }
-    .brand p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
     .top-actions { display: flex; align-items: center; gap: 10px; }
-    .month-filter {
+    .sync-card {
       display: flex;
       align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 14px;
-      white-space: nowrap;
-    }
-    .month-filter input, .field input, .field select, .field textarea, .search-input {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--card-soft);
-      color: var(--text);
-      outline: none;
-      transition: border-color .2s, box-shadow .2s, background .2s;
-    }
-    .month-filter input, .field input, .field select, .search-input {
-      height: 42px;
-      padding: 0 12px;
-    }
-    .field textarea {
-      min-height: 72px;
-      resize: vertical;
-      padding: 10px 12px;
-    }
-    .month-filter input:focus, .field input:focus, .field select:focus, .field textarea:focus, .search-input:focus {
-      border-color: var(--primary);
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(15, 93, 82, .11);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       gap: 8px;
       min-height: 42px;
-      padding: 0 14px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
       border-radius: 12px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      white-space: nowrap;
-      transition: transform .15s, background .2s, border-color .2s;
-    }
-    .btn:hover { transform: translateY(-1px); border-color: #cbd6d1; }
-    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .btn-primary:hover { background: #0a4c43; }
-    .btn-danger { background: var(--expense); border-color: var(--expense); color: #fff; }
-    .icon-btn {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 10px;
-      border: 1px solid var(--line);
       background: #fff;
       color: var(--muted);
-      font-size: 18px;
-    }
-    .icon-btn:hover { color: var(--expense); border-color: rgba(217, 88, 69, .35); background: #fff5f3; }
-
-    .view { display: none; }
-    .view.active { display: block; }
-
-    .overview-grid {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .metric-card, .panel, .mini-panel {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-    .metric-card {
-      min-width: 0;
-      padding: 15px;
-    }
-    .metric-card span { display: block; color: var(--muted); font-size: 13px; margin-bottom: 9px; }
-    .metric-card strong {
-      display: block;
-      font-size: 22px;
-      line-height: 1.12;
-      overflow-wrap: anywhere;
-    }
-    .metric-card small { display: block; margin-top: 7px; min-height: 18px; color: var(--muted); font-size: 12px; }
-    .income-text { color: var(--income); }
-    .expense-text { color: var(--expense); }
-    .balance-text { color: var(--blue); }
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.55fr) minmax(330px, .85fr);
-      gap: 16px;
-      align-items: start;
-    }
-    .left-stack, .right-stack, .section-stack {
-      display: grid;
-      gap: 16px;
-      min-width: 0;
-    }
-    .chart-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 16px;
-    }
-    .panel { padding: 16px; min-width: 0; }
-    .panel-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .panel-head h2 { margin: 0; font-size: 17px; }
-    .panel-head p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-
-    .chart {
-      width: 100%;
-      height: 280px;
-    }
-    .chart.compact { height: 220px; }
-    .chart.tall { height: 320px; }
-    .empty {
-      display: grid;
-      place-items: center;
-      min-height: 140px;
-      padding: 22px;
-      border: 1px dashed #cbd6d1;
-      border-radius: 12px;
-      background: var(--card-soft);
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    .category-list, .rank-list, .transaction-list, .fixed-list {
-      display: grid;
-      gap: 10px;
-    }
-    .category-row, .rank-row {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: center;
-      padding: 10px;
-      border-radius: 12px;
-      background: var(--card-soft);
-      border: 1px solid var(--line);
-    }
-    .cat-icon {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 10px;
-      background: #eef5f2;
-      font-size: 18px;
-    }
-    .row-main { min-width: 0; }
-    .row-main strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .row-main span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .bar-track {
-      height: 8px;
-      overflow: hidden;
-      margin-top: 8px;
-      border-radius: 999px;
-      background: #e6ece9;
-    }
-    .bar-fill { height: 100%; width: 0; border-radius: inherit; background: var(--primary); }
-
-    .budget-grid, .tag-grid, .discipline-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-    .mini-panel {
-      padding: 12px;
-      background: var(--card-soft);
-      box-shadow: none;
-    }
-    .mini-panel span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 7px; }
-    .mini-panel strong { display: block; font-size: 18px; overflow-wrap: anywhere; }
-    .progress-track {
-      height: 12px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: #e6ece9;
-      margin-top: 12px;
-    }
-    .progress-fill { height: 100%; width: 0; border-radius: inherit; background: var(--primary); transition: width .3s; }
-    .notice {
-      margin-top: 12px;
-      padding: 11px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(196, 122, 19, .22);
-      background: #fff8ec;
-      color: var(--warning);
       font-size: 13px;
-      line-height: 1.55;
-    }
-    .notice.danger {
-      border-color: rgba(217, 88, 69, .25);
-      background: #fff3f1;
-      color: var(--expense);
-    }
-    .notice.good {
-      border-color: rgba(22, 135, 92, .22);
-      background: #effaf5;
-      color: var(--income);
-    }
-
-    .form-grid { display: grid; gap: 11px; }
-    .field { display: grid; gap: 6px; }
-    .field label { color: var(--muted); font-size: 12px; }
-    .type-switch {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      padding: 4px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--card-soft);
-    }
-    .type-switch input { position: absolute; opacity: 0; pointer-events: none; }
-    .type-switch label {
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border-radius: 9px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .type-switch input:checked + label { background: var(--primary); color: #fff; }
-    .message { min-height: 18px; color: var(--muted); font-size: 13px; }
-    .message.success { color: var(--income); }
-    .message.error { color: var(--expense); }
-
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .quick-btn {
-      min-height: 58px;
-      padding: 9px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--card-soft);
-      color: var(--text);
-      text-align: left;
-    }
-    .quick-btn strong { display: block; font-size: 14px; }
-    .quick-btn span { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
-
-    .transaction-item {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      gap: 10px;
-      align-items: center;
-      padding: 11px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--card-soft);
-    }
-    .transaction-item .amount { font-weight: 700; white-space: nowrap; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      padding: 0 7px;
-      border-radius: 999px;
-      background: rgba(15, 93, 82, .09);
-      color: var(--primary);
-      font-size: 12px;
       white-space: nowrap;
     }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #c9d2ce;
     }
-    .report-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+    .sync-card.online .sync-dot { background: var(--income); }
+    .sync-card.busy .sync-dot { background: var(--warning); }
+    .sync-user {
+      max-width: 128px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .report-metrics {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .inline-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 10px;
-      align-items: end;
-    }
-    .data-actions {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-    .hidden-file { display: none; }
-
-    .bottom-nav {
-      position: fixed;
-      left: 50%;
-      bottom: 16px;
-      z-index: 30;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      width: min(520px, calc(100% - 28px));
-      padding: 8px;
-      border: 1px solid rgba(214, 224, 220, .88);
-      border-radius: 22px;
-      background: rgba(255,255,255,.94);
-      box-shadow: 0 16px 44px rgba(18, 33, 31, .16);
-      transform: translateX(-50%);
-      backdrop-filter: blur(18px);
-    }
-    .nav-btn {
-      display: grid;
-      place-items: center;
-      gap: 4px;
-      min-height: 50px;
-      border-radius: 15px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .nav-btn strong { font-size: 18px; line-height: 1; }
-    .nav-btn.active { background: rgba(15, 93, 82, .11); color: var(--primary); }
-
-    .drawer {
-      position: fixed;
-      inset: 0;
-      z-index: 40;
-      display: none;
-      background: rgba(13, 23, 21, .36);
-    }
-    .drawer.open { display: block; }
-    .drawer-panel {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: min(430px, 100%);
-      height: 100%;
-      overflow-y: auto;
-      padding: 18px;
-      background: var(--bg);
-      box-shadow: -18px 0 44px rgba(18, 33, 31, .2);
-    }
-    .drawer-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .drawer-head h2 { margin: 0; font-size: 18px; }
-
-    @media (max-width: 1100px) {
-      .overview-grid { grid-template-columns: repeat(3, 1fr); }
-      .dashboard-grid { grid-template-columns: 1fr; }
-      .chart-row { grid-template-columns: 1fr; }
-    }
-
-    @media (max-width: 760px) {
-      .app { width: min(100% - 20px, 1320px); padding-top: 16px; }
+    .month-filter {
       .topbar { align-items: stretch; flex-direction: column; }
       .top-actions { justify-content: space-between; }
+      .top-actions { justify-content: space-between; flex-wrap: wrap; }
+      .sync-card { width: 100%; justify-content: space-between; }
       .desktop-add { display: none; }
-      .overview-grid {
-        display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(158px, 70%);
-        grid-template-columns: none;
-        overflow-x: auto;
-        padding-bottom: 4px;
-        scrollbar-width: none;
-      }
-      .overview-grid::-webkit-scrollbar { display: none; }
-      .metric-card strong { font-size: 21px; }
-      .stats-grid, .report-grid, .budget-grid, .tag-grid, .discipline-grid, .report-metrics {
-        grid-template-columns: 1fr;
-      }
-      .chart { height: 260px; }
-      .chart.tall { height: 280px; }
-      .inline-form, .data-actions { grid-template-columns: 1fr; }
-      .quick-grid { grid-template-columns: repeat(2, 1fr); }
-      .transaction-item { grid-template-columns: auto minmax(0, 1fr) auto; }
-      .transaction-item .icon-btn { grid-column: 3; grid-row: 1 / 3; }
-      .transaction-item .amount { grid-column: 2; }
-      .month-filter input { width: 150px; }
-    }
-  </style>
-</head>
-<body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand">
-        <h1>个人财富纪律系统</h1>
-        <p id="pageSubtitle">收入、支出、预算、浪费与成长投资一屏看清</p>
-      </div>
       <div class="top-actions">
+        <div id="syncCard" class="sync-card" title="登录后可同步手机和电脑数据">
+          <span class="sync-dot"></span>
+          <span id="syncStatus">未登录，仅本地保存</span>
+          <span id="syncUser" class="sync-user"></span>
+          <button id="loginBtn" class="btn" type="button">Google 登录</button>
+          <button id="logoutBtn" class="btn" type="button" style="display:none">退出</button>
+        </div>
         <label class="month-filter">
-          <span>月份</span>
-          <input id="monthFilter" type="month" />
-        </label>
-        <button id="openAddBtn" class="btn btn-primary" type="button">+ 记一笔</button>
-      </div>
-    </header>
-
-    <section id="homeView" class="view active">
-      <section class="overview-grid" aria-label="财务总览">
-        <article class="metric-card"><span>今日支出</span><strong id="todayExpense" class="expense-text">¥0.00</strong><small id="todayCount">0 笔</small></article>
-        <article class="metric-card"><span>本月支出</span><strong id="monthExpense" class="expense-text">¥0.00</strong><small>支出总额</small></article>
-        <article class="metric-card"><span>本月收入</span><strong id="monthIncome" class="income-text">¥0.00</strong><small>收入总额</small></article>
-        <article class="metric-card"><span>本月结余</span><strong id="monthBalance" class="balance-text">¥0.00</strong><small id="balanceNote">收支持平</small></article>
-        <article class="metric-card"><span>预算剩余</span><strong id="budgetRemain">未设置</strong><small id="budgetMiniNote">设置预算后显示</small></article>
-        <article class="metric-card"><span>最大支出分类</span><strong id="topCategory">暂无</strong><small id="topCategoryAmount">¥0.00</small></article>
-      </section>
-
-      <section class="dashboard-grid">
-        <div class="left-stack">
-          <section class="chart-row">
-            <article class="panel">
-              <div class="panel-head">
-                <div><h2>本月支出分类占比</h2><p>看清钱主要花在哪里</p></div>
-              </div>
-              <div id="categoryEmpty" class="empty">本月还没有支出记录，先记一笔开始分析。</div>
-              <div id="categoryChart" class="chart compact"></div>
-              <div id="categoryList" class="category-list"></div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div><h2>财务纪律评分</h2><p>预算、结余、成长投资和浪费支出综合评分</p></div>
-              </div>
-              <div id="scoreChart" class="chart compact"></div>
-              <div id="scoreAdvice" class="notice good">整体不错，继续保持。</div>
-            </article>
-          </section>
-
-          <section class="chart-row">
-            <article class="panel">
-              <div class="panel-head"><div><h2>最近 7 天支出趋势</h2><p>识别最近花钱节奏是否失控</p></div></div>
-              <div id="trendChart" class="chart compact"></div>
-            </article>
-            <article class="panel">
-              <div class="panel-head"><div><h2>本月支出 Top 5</h2><p>优先管理最高支出分类</p></div></div>
-              <div id="topRankList" class="rank-list"></div>
-            </article>
-          </section>
-
-          <article class="panel">
-            <div class="panel-head"><div><h2>最近 30 天收支对比</h2><p>绿色为收入，红色为支出</p></div></div>
-            <div id="barChart" class="chart tall"></div>
-          </article>
-        </div>
-
-        <aside class="right-stack">
-          <article class="panel">
-            <div class="panel-head">
-              <div><h2>本月预算</h2><p>设置预算后自动跟踪使用率</p></div>
-            </div>
-            <form id="budgetForm" class="form-grid">
-              <div class="field"><label for="budgetInput">预算金额</label><input id="budgetInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 5000" /></div>
-              <button class="btn" type="submit">保存预算</button>
-            </form>
-            <div class="budget-grid" style="margin-top:12px">
-              <div class="mini-panel"><span>本月预算</span><strong id="budgetTotal">未设置</strong></div>
-              <div class="mini-panel"><span>已使用</span><strong id="budgetUsed">¥0.00</strong></div>
-              <div class="mini-panel"><span>剩余额度</span><strong id="budgetLeft">未设置</strong></div>
-              <div class="mini-panel"><span>使用百分比</span><strong id="budgetPercent">0%</strong></div>
-            </div>
-            <div class="progress-track"><div id="budgetProgress" class="progress-fill"></div></div>
-            <div id="budgetAlert" class="notice">设置预算后，这里会显示预算提醒。</div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head"><div><h2>标签反馈</h2><p>成长投资、冲动消费和可避免支出</p></div></div>
-            <div class="tag-grid">
-              <div class="mini-panel"><span>成长投资</span><strong id="growthTotal" class="income-text">¥0.00</strong></div>
-              <div class="mini-panel"><span>冲动消费</span><strong id="impulseTotal" class="expense-text">¥0.00</strong></div>
-              <div class="mini-panel"><span>可避免支出</span><strong id="avoidableTotal" class="expense-text">¥0.00</strong></div>
-              <div class="mini-panel"><span>浪费占比</span><strong id="wasteRatio">0%</strong></div>
-            </div>
-            <div id="tagAdvice" class="notice good">本月浪费支出处于可控范围。</div>
-          </article>
-
-          <article class="panel desktop-add">
-            <div class="panel-head"><div><h2>快速记账</h2><p>桌面端可在右侧直接录入</p></div></div>
-            <div id="desktopFormMount"></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head">
-              <div><h2>最近交易</h2><p>最近 10 条账单，删除后图表自动刷新</p></div>
-              <button class="btn" type="button" data-view="mineView">全部</button>
-            </div>
-            <div id="recentList" class="transaction-list"></div>
-          </article>
-        </aside>
-      </section>
-    </section>
-
-    <section id="statsView" class="view">
-      <div class="section-stack">
-        <section class="report-grid">
-          <article class="panel">
-            <div class="panel-head"><div><h2>周报总结</h2><p>本周 vs 上周</p></div></div>
-            <div class="report-metrics">
-              <div class="mini-panel"><span>本周支出</span><strong id="weekExpense">¥0.00</strong></div>
-              <div class="mini-panel"><span>对比上周</span><strong id="weekCompare">持平</strong></div>
-              <div class="mini-panel"><span>最高分类</span><strong id="weekTopCategory">暂无</strong></div>
-              <div class="mini-panel"><span>冲动消费</span><strong id="weekImpulse">¥0.00</strong></div>
-            </div>
-            <div id="weekAdvice" class="notice good">保持记录，周报会更准确。</div>
-          </article>
-          <article class="panel">
-            <div class="panel-head"><div><h2>月报总结</h2><p>本月 vs 上月</p></div></div>
-            <div class="report-metrics">
-              <div class="mini-panel"><span>本月支出</span><strong id="reportMonthExpense">¥0.00</strong></div>
-              <div class="mini-panel"><span>对比上月</span><strong id="monthCompare">持平</strong></div>
-              <div class="mini-panel"><span>最高分类</span><strong id="monthTopCategoryReport">暂无</strong></div>
-              <div class="mini-panel"><span>固定支出</span><strong id="fixedMonthlyTotal">¥0.00</strong></div>
-            </div>
-            <div id="monthAdvice" class="notice good">本月消费结构比较平稳。</div>
-          </article>
-        </section>
-        <section class="stats-grid">
-          <article class="panel"><div class="panel-head"><div><h2>分类占比</h2><p>当前筛选月份</p></div></div><div id="statsCategoryChart" class="chart"></div></article>
-          <article class="panel"><div class="panel-head"><div><h2>30 天收支</h2><p>观察现金流</p></div></div><div id="statsBarChart" class="chart"></div></article>
-        </section>
-      </div>
-    </section>
-
-    <section id="mineView" class="view">
-      <div class="section-stack">
-        <article class="panel">
-          <div class="panel-head">
-            <div><h2>账单列表</h2><p>支持按备注搜索，按时间倒序</p></div>
-            <input id="searchInput" class="search-input" type="search" placeholder="按备注搜索账单" />
-          </div>
-          <div id="listCount" class="message">0 条记录</div>
-          <div id="billList" class="transaction-list"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head"><div><h2>存钱目标</h2><p>按当前结余速度估算完成时间</p></div></div>
-          <form id="savingForm" class="inline-form">
-            <div class="field"><label for="savingTarget">目标金额</label><input id="savingTarget" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 10000" /></div>
-            <div class="field"><label for="savingCurrent">当前已存</label><input id="savingCurrent" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 2300" /></div>
-            <button class="btn" type="submit">保存</button>
-          </form>
-          <div class="budget-grid" style="margin-top:12px">
-            <div class="mini-panel"><span>距离目标</span><strong id="savingLeft">未设置</strong></div>
-            <div class="mini-panel"><span>预计完成</span><strong id="savingEta">未设置</strong></div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head"><div><h2>固定支出管理</h2><p>房租、水电、会员订阅、话费，每月自动提醒</p></div></div>
-          <form id="fixedForm" class="inline-form">
-            <div class="field"><label for="fixedName">项目</label><select id="fixedName"><option value="房租">房租</option><option value="水电">水电</option><option value="会员订阅">会员订阅</option><option value="话费">话费</option></select></div>
-            <div class="field"><label for="fixedAmount">每月金额</label><input id="fixedAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="例如 88" /></div>
-            <button class="btn" type="submit">保存</button>
-          </form>
-          <div id="fixedReminder" class="notice">添加固定支出后，每月会提醒你预留。</div>
-          <div id="fixedList" class="fixed-list"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head"><div><h2>数据管理</h2><p>JSON 备份和恢复</p></div></div>
-          <div class="data-actions">
-            <button id="exportBtn" class="btn" type="button">导出 JSON</button>
-            <button id="importBtn" class="btn" type="button">导入 JSON</button>
-            <button id="clearBtn" class="btn btn-danger" type="button">清空所有数据</button>
-            <input id="importFile" class="hidden-file" type="file" accept="application/json,.json" />
-          </div>
-        </article>
-      </div>
-    </section>
-  </main>
-
-  <nav class="bottom-nav" aria-label="底部导航">
-    <button class="nav-btn active" type="button" data-view="homeView"><strong>⌂</strong><span>首页</span></button>
-    <button class="nav-btn" type="button" data-add-open><strong>＋</strong><span>记账</span></button>
-    <button class="nav-btn" type="button" data-view="statsView"><strong>⌁</strong><span>统计</span></button>
-    <button class="nav-btn" type="button" data-view="mineView"><strong>◌</strong><span>我的</span></button>
-  </nav>
-
-  <div id="drawer" class="drawer" aria-hidden="true">
-    <div class="drawer-panel">
-      <div class="drawer-head">
-        <h2>添加账单</h2>
-        <button id="closeDrawerBtn" class="icon-btn" type="button" aria-label="关闭">×</button>
-      </div>
-      <div id="drawerFormMount"></div>
-    </div>
-  </div>
-
-  <template id="billFormTemplate">
-    <form id="billForm" class="form-grid">
-      <div class="quick-grid">
-        <button class="quick-btn" type="button" data-quick="早餐" data-category="餐饮"><strong>早餐</strong><span>餐饮</span></button>
-        <button class="quick-btn" type="button" data-quick="午餐" data-category="餐饮"><strong>午餐</strong><span>餐饮</span></button>
-        <button class="quick-btn" type="button" data-quick="交通" data-category="交通"><strong>交通</strong><span>出行</span></button>
-      </div>
-      <div class="field">
-        <label>类型</label>
-        <div class="type-switch">
-          <input id="typeExpense" name="type" type="radio" value="expense" checked />
-          <label for="typeExpense">支出</label>
-          <input id="typeIncome" name="type" type="radio" value="income" />
-          <label for="typeIncome">收入</label>
-        </div>
-      </div>
-      <div class="field"><label for="amount">金额</label><input id="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="例如 28.50" required /></div>
-      <div class="field"><label for="category">分类</label><select id="category" required></select></div>
-      <div class="field"><label for="tag">标签</label><select id="tag" required></select></div>
-      <div class="field"><label for="date">日期</label><input id="date" type="date" required /></div>
-      <div class="field"><label for="note">备注</label><textarea id="note" placeholder="可选，例如午餐、地铁、课程费"></textarea></div>
-      <button class="btn btn-primary" type="submit">添加记录</button>
-      <div id="formMessage" class="message" role="status"></div>
-    </form>
-  </template>
 
   <script>
-    const STORAGE_KEY = "personal-bills-v1";
-    const BUDGET_KEY = "personal-budgets-v1";
-    const FIXED_KEY = "personal-fixed-expenses-v1";
-    const SAVING_KEY = "personal-saving-goal-v1";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDocs,
+      getDoc,
+      setDoc,
+      deleteDoc,
+      writeBatch,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
-    const expenseCategories = {
-      "餐饮": "🍜", "交通": "🚌", "房租": "🏠", "水电": "💡", "健身": "🏋️", "学习": "📚",
-      "证书考试": "🪪", "形象提升": "💈", "社交": "🤝", "娱乐": "🎮", "购物": "🛍️",
-      "医疗": "💊", "家庭": "👨‍👩‍👦", "浪费支出": "⚠️", "其他": "📌"
+    const firebaseConfig = {
+      apiKey: "AIzaSyByZh7MHsdZ8r4pXZmBW7ap3af2FgkMRoo",
+      authDomain: "wealth-discipline.firebaseapp.com",
+      projectId: "wealth-discipline",
+      storageBucket: "wealth-discipline.firebasestorage.app",
+      messagingSenderId: "487660454571",
+      appId: "1:487660454571:web:ce27d40e5f2c8400b12dee"
     };
-    const incomeCategories = { "工资": "💼", "兼职": "🧰", "接单": "📦", "补贴": "🎁", "投资收益": "📈", "退款": "↩️", "其他": "💰" };
-    const expenseTags = ["必要支出", "成长投资", "冲动消费", "可避免支出", "高价值支出"];
-    const incomeTags = ["工资", "兼职", "接单", "补贴", "投资收益", "其他"];
-    const legacyExpenseCategories = ["餐饮", "交通", "健身", "学习", "购物", "房租", "水电", "其他"];
 
-    const state = {
-      bills: loadBills(),
-      budgets: loadBudgets(),
-      fixedExpenses: loadFixedExpenses(),
-      savingGoal: loadSavingGoal(),
-      selectedMonth: formatMonth(new Date()),
-      activeView: "homeView",
-      searchText: ""
+    const firebaseApp = initializeApp(firebaseConfig);
+    const auth = getAuth(firebaseApp);
+    const db = getFirestore(firebaseApp);
+    const googleProvider = new GoogleAuthProvider();
+
+    const STORAGE_KEY = "personal-bills-v1";
+
+    const cloud = {
+      user: null,
+      ready: false,
+      loading: false,
+      applyingRemote: false
     };
 
     const charts = {};
-    const els = {};
+        importFile: document.querySelector("#importFile"),
+        syncCard: document.querySelector("#syncCard"),
+        syncStatus: document.querySelector("#syncStatus"),
+        syncUser: document.querySelector("#syncUser"),
+        loginBtn: document.querySelector("#loginBtn"),
+        logoutBtn: document.querySelector("#logoutBtn"),
+        drawer: document.querySelector("#drawer"),
+      renderAll();
+      initAuthSync();
+    }
+      document.querySelector("#clearBtn").addEventListener("click", clearAllData);
+      els.loginBtn.addEventListener("click", loginWithGoogle);
+      els.logoutBtn.addEventListener("click", logout);
 
-    document.addEventListener("DOMContentLoaded", init);
 
-    function init() {
-      mountBillForm();
-      cacheElements();
-      initCharts();
-      bindEvents();
-      els.monthFilter.value = state.selectedMonth;
+    function handleAddBill(event) {
+    async function handleAddBill(event) {
+      event.preventDefault();
+      saveBills();
+      await cloudUpsertTransaction(bill);
+      amountInput.value = "";
+
+    function saveBudget(event) {
+    async function saveBudget(event) {
+      event.preventDefault();
+      saveBudgets();
+      await cloudSaveSettings();
+      renderAll();
+
+    function saveSavingGoalFromForm(event) {
+    async function saveSavingGoalFromForm(event) {
+      event.preventDefault();
+      saveSavingGoal();
+      await cloudSaveSettings();
+      renderAll();
+
+    function saveFixedExpense(event) {
+    async function saveFixedExpense(event) {
+      event.preventDefault();
+      saveFixedExpenses();
+      await cloudSaveSettings();
+      renderAll();
+
+    function deleteBill(id) {
+    async function deleteBill(id) {
+      state.bills = state.bills.filter((bill) => bill.id !== id);
+      saveBills();
+      await cloudDeleteTransaction(id);
+      renderAll();
+      document.querySelector("#fixedList").innerHTML = state.fixedExpenses.length ? state.fixedExpenses.map((item) => `<div class="category-row"><span class="cat-icon">${getIcon("expense", item.name)}</span><div class="row-main"><strong>${escapeHtml(item.name)}</strong><span>每月 ${money(item.amount)}</span></div><button class="icon-btn" type="button" data-delete-fixed="${item.id}">×</button></div>`).join("") : '<div class="empty">还没有固定支出项目。</div>';
+      document.querySelectorAll("[data-delete-fixed]").forEach((button) => button.addEventListener("click", () => {
+      document.querySelectorAll("[data-delete-fixed]").forEach((button) => button.addEventListener("click", async () => {
+        state.fixedExpenses = state.fixedExpenses.filter((item) => item.id !== button.dataset.deleteFixed);
+        saveFixedExpenses();
+        await cloudSaveSettings();
+        renderAll();
+      const reader = new FileReader();
+      reader.onload = () => {
+      reader.onload = async () => {
+        try {
+          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
+          await cloudReplaceAllData();
+          els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
+
+    function clearAllData() {
+    async function clearAllData() {
+      if (!confirm("确定要清空所有数据吗？")) return;
+      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
+      await cloudReplaceAllData();
+      renderAll();
+
+    function initAuthSync() {
+      updateSyncStatus("未登录，仅本地保存");
+      onAuthStateChanged(auth, async (user) => {
+        cloud.user = user;
+        cloud.ready = Boolean(user);
+        if (!user) {
+          updateSyncStatus("未登录，仅本地保存");
+          renderAll();
+          return;
+        }
+
+        updateSyncStatus("正在读取云端数据...", "busy");
+        try {
+          await loadCloudDataAndMaybeMigrate();
+          updateSyncStatus("云同步已开启", "online");
+        } catch (error) {
+          console.error(error);
+          updateSyncStatus("云同步失败，请检查 Firebase 规则", "busy");
+          alert(`云同步失败：${error.message}`);
+        }
+      });
+    }
+
+    async function loginWithGoogle() {
+      try {
+        updateSyncStatus("正在登录...", "busy");
+        await signInWithPopup(auth, googleProvider);
+      } catch (error) {
+        console.error(error);
+        updateSyncStatus("登录失败，仍使用本地保存");
+        alert(`Google 登录失败：${error.message}`);
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+      cloud.user = null;
+      cloud.ready = false;
+      updateSyncStatus("未登录，仅本地保存");
+    }
+
+    function updateSyncStatus(text, mode) {
+      if (!els.syncCard) return;
+      els.syncStatus.textContent = text;
+      els.syncCard.classList.toggle("online", mode === "online");
+      els.syncCard.classList.toggle("busy", mode === "busy");
+      els.syncUser.textContent = cloud.user ? (cloud.user.displayName || cloud.user.email || "") : "";
+      els.loginBtn.style.display = cloud.user ? "none" : "inline-flex";
+      els.logoutBtn.style.display = cloud.user ? "inline-flex" : "none";
+    }
+
+    async function loadCloudDataAndMaybeMigrate() {
+      const localSnapshot = getLocalSnapshot();
+      const remoteSnapshot = await readCloudSnapshot();
+      const hasLocalData = localSnapshot.bills.length || Object.keys(localSnapshot.budgets).length || localSnapshot.savingGoal.target || localSnapshot.savingGoal.current;
+      const hasRemoteData = remoteSnapshot.bills.length || Object.keys(remoteSnapshot.budgets).length || remoteSnapshot.savingGoal.target || remoteSnapshot.savingGoal.current;
+
+      if (hasLocalData && !hasRemoteData) {
+        const shouldMigrate = confirm("检测到本地已有旧数据，是否迁移到云端以便手机和电脑同步？");
+        if (shouldMigrate) {
+          await writeSnapshotToCloud(localSnapshot);
+          applySnapshot(localSnapshot);
+          return;
+        }
+      }
+
+      applySnapshot(remoteSnapshot);
+    }
+
+    async function readCloudSnapshot() {
+      if (!cloud.user) return getLocalSnapshot();
+      const transactionsRef = collection(db, "users", cloud.user.uid, "transactions");
+      const settingsRef = doc(db, "users", cloud.user.uid, "settings", "main");
+      const [transactionsSnap, settingsSnap] = await Promise.all([getDocs(transactionsRef), getDoc(settingsRef)]);
+      const bills = transactionsSnap.docs.map((item) => normalizeBill({ id: item.id, ...item.data() })).filter(Boolean);
+      const settings = settingsSnap.exists() ? settingsSnap.data() : {};
+
+      return {
+        bills,
+        budgets: normalizeCloudBudgets(settings.monthlyBudget),
+        fixedExpenses: normalizeFixedExpenses(settings.fixedExpenses),
+        savingGoal: normalizeSavingGoal({
+          target: settings.savingGoal,
+          current: settings.currentSaving
+        })
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      cloud.applyingRemote = true;
+      state.bills = snapshot.bills.map(normalizeBill).filter(Boolean);
+      state.budgets = normalizeBudgets(snapshot.budgets);
+      state.fixedExpenses = normalizeFixedExpenses(snapshot.fixedExpenses);
+      state.savingGoal = normalizeSavingGoal(snapshot.savingGoal);
+      saveBills();
+      saveBudgets();
+      saveFixedExpenses();
+      saveSavingGoal();
       els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
       els.savingTarget.value = state.savingGoal.target || "";
       els.savingCurrent.value = state.savingGoal.current || "";
-      updateCategoryAndTagOptions();
+      cloud.applyingRemote = false;
       renderAll();
     }
 
-    function mountBillForm() {
-      const template = document.querySelector("#billFormTemplate");
-      document.querySelector("#desktopFormMount").appendChild(template.content.cloneNode(true));
-      document.querySelector("#drawerFormMount").appendChild(template.content.cloneNode(true));
-      document.querySelector("#drawerFormMount form").id = "drawerBillForm";
-      document.querySelector("#drawerFormMount #typeExpense").id = "drawerTypeExpense";
-      document.querySelector("#drawerFormMount label[for='typeExpense']").setAttribute("for", "drawerTypeExpense");
-      document.querySelector("#drawerFormMount #typeIncome").id = "drawerTypeIncome";
-      document.querySelector("#drawerFormMount label[for='typeIncome']").setAttribute("for", "drawerTypeIncome");
-      ["amount", "category", "tag", "date", "note", "formMessage"].forEach((id) => {
-        const node = document.querySelector(`#drawerFormMount #${id}`);
-        if (node) node.id = `drawer${capitalize(id)}`;
-      });
+    function getLocalSnapshot() {
+      return {
+        bills: state.bills.map(normalizeBill).filter(Boolean),
+        budgets: normalizeBudgets(state.budgets),
+        fixedExpenses: normalizeFixedExpenses(state.fixedExpenses),
+        savingGoal: normalizeSavingGoal(state.savingGoal)
+      };
     }
 
-    function cacheElements() {
-      Object.assign(els, {
-        monthFilter: document.querySelector("#monthFilter"),
-        pageSubtitle: document.querySelector("#pageSubtitle"),
-        budgetForm: document.querySelector("#budgetForm"),
-        budgetInput: document.querySelector("#budgetInput"),
-        savingForm: document.querySelector("#savingForm"),
-        savingTarget: document.querySelector("#savingTarget"),
-        savingCurrent: document.querySelector("#savingCurrent"),
-        fixedForm: document.querySelector("#fixedForm"),
-        fixedName: document.querySelector("#fixedName"),
-        fixedAmount: document.querySelector("#fixedAmount"),
-        searchInput: document.querySelector("#searchInput"),
-        importFile: document.querySelector("#importFile"),
-        drawer: document.querySelector("#drawer"),
-        forms: [document.querySelector("#billForm"), document.querySelector("#drawerBillForm")],
-        navButtons: document.querySelectorAll(".nav-btn"),
-        views: document.querySelectorAll(".view")
-      });
+    async function cloudUpsertTransaction(bill) {
+      if (!cloud.user || cloud.applyingRemote) return;
+      updateSyncStatus("正在同步...", "busy");
+      const payload = toFirestoreTransaction(bill);
+      await setDoc(doc(db, "users", cloud.user.uid, "transactions", bill.id), payload, { merge: true });
+      await cloudSaveSettings();
+      updateSyncStatus("云同步已开启", "online");
     }
 
-    function initCharts() {
-      ["categoryChart", "trendChart", "barChart", "scoreChart", "statsCategoryChart", "statsBarChart"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el && window.echarts) charts[id] = echarts.init(el);
-      });
-      window.addEventListener("resize", () => Object.values(charts).forEach((chart) => chart.resize()));
+    async function cloudDeleteTransaction(id) {
+      if (!cloud.user || cloud.applyingRemote) return;
+      updateSyncStatus("正在同步...", "busy");
+      await deleteDoc(doc(db, "users", cloud.user.uid, "transactions", id));
+      updateSyncStatus("云同步已开启", "online");
     }
 
-    function bindEvents() {
-      els.monthFilter.addEventListener("change", () => {
-        state.selectedMonth = els.monthFilter.value || formatMonth(new Date());
-        els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
-        renderAll();
-      });
-      els.budgetForm.addEventListener("submit", saveBudget);
-      els.savingForm.addEventListener("submit", saveSavingGoalFromForm);
-      els.fixedForm.addEventListener("submit", saveFixedExpense);
-      els.searchInput.addEventListener("input", () => {
-        state.searchText = els.searchInput.value.trim().toLowerCase();
-        renderTransactions();
-      });
-      document.querySelector("#openAddBtn").addEventListener("click", openDrawer);
-      document.querySelector("#closeDrawerBtn").addEventListener("click", closeDrawer);
-      els.drawer.addEventListener("click", (event) => { if (event.target === els.drawer) closeDrawer(); });
-      document.querySelector("#exportBtn").addEventListener("click", exportData);
-      document.querySelector("#importBtn").addEventListener("click", () => els.importFile.click());
-      els.importFile.addEventListener("change", importData);
-      document.querySelector("#clearBtn").addEventListener("click", clearAllData);
+    async function cloudSaveSettings() {
+      if (!cloud.user || cloud.applyingRemote) return;
+      await setDoc(doc(db, "users", cloud.user.uid, "settings", "main"), toFirestoreSettings(), { merge: true });
+    }
 
-      els.navButtons.forEach((button) => {
-        if (button.hasAttribute("data-add-open")) button.addEventListener("click", openDrawer);
-        else button.addEventListener("click", () => switchView(button.dataset.view));
-      });
-      document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
+    async function cloudReplaceAllData() {
+      if (!cloud.user || cloud.applyingRemote) return;
+      updateSyncStatus("正在同步...", "busy");
+      await writeSnapshotToCloud(getLocalSnapshot(), true);
+      updateSyncStatus("云同步已开启", "online");
+    }
 
-      els.forms.forEach((form) => {
-        form.addEventListener("submit", handleAddBill);
-        form.querySelectorAll("input[name='type']").forEach((radio) => {
-          radio.addEventListener("change", () => updateCategoryAndTagOptions(form));
-        });
-        form.querySelectorAll(".quick-btn").forEach((button) => {
-          button.addEventListener("click", () => fillQuickBill(form, button.dataset.quick, button.dataset.category));
-        });
-        form.querySelector("[type='date']").value = formatDate(new Date());
+    async function writeSnapshotToCloud(snapshot, clearRemoteFirst = false) {
+      if (!cloud.user) return;
+      const batch = writeBatch(db);
+      if (clearRemoteFirst) {
+        const oldDocs = await getDocs(collection(db, "users", cloud.user.uid, "transactions"));
+        oldDocs.forEach((item) => batch.delete(item.ref));
+      }
+      snapshot.bills.forEach((bill) => {
+        batch.set(doc(db, "users", cloud.user.uid, "transactions", bill.id), toFirestoreTransaction(bill), { merge: true });
       });
+      batch.set(doc(db, "users", cloud.user.uid, "settings", "main"), toFirestoreSettings(snapshot), { merge: true });
+      await batch.commit();
+    }
+
+    function toFirestoreTransaction(bill) {
+      return {
+        id: bill.id,
+        type: bill.type,
+        amount: Number(bill.amount || 0),
+        category: bill.category || "其他",
+        tag: bill.tag || (bill.type === "income" ? "其他" : "必要支出"),
+        date: bill.date || formatDate(new Date()),
+        note: bill.note || "",
+        createdAt: bill.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    function toFirestoreSettings(snapshot = getLocalSnapshot()) {
+      return {
+        monthlyBudget: snapshot.budgets,
+        savingGoal: Number(snapshot.savingGoal.target || 0),
+        currentSaving: Number(snapshot.savingGoal.current || 0),
+        fixedExpenses: snapshot.fixedExpenses,
+        updatedAt: serverTimestamp()
+      };
     }
 
     function renderAll() {
-      const monthBills = getBillsByMonth(state.selectedMonth);
-      const expenses = monthBills.filter((bill) => bill.type === "expense");
-      const incomes = monthBills.filter((bill) => bill.type === "income");
-      const monthExpense = sum(expenses);
-      const monthIncome = sum(incomes);
-      const balance = roundMoney(monthIncome - monthExpense);
-      const categoryTotals = getCategoryTotals(expenses);
-      const topCategory = getTopCategory(categoryTotals);
-
-      renderOverview(monthBills, monthExpense, monthIncome, balance, topCategory);
-      renderBudget(monthExpense);
-      renderCategoryDonut(categoryTotals, monthExpense);
-      renderSevenDayTrend();
-      renderThirtyDayBars();
-      renderTopRanks(categoryTotals, monthExpense);
-      renderTags(expenses, monthExpense);
-      renderScore(monthExpense, monthIncome, balance, expenses);
-      renderReports(monthExpense, monthIncome, categoryTotals, topCategory);
-      renderTransactions();
-      renderSavingGoal(balance);
-      renderFixedExpenses();
-      Object.values(charts).forEach((chart) => chart.resize());
     }
-
-    function renderOverview(monthBills, monthExpense, monthIncome, balance, topCategory) {
-      const today = formatDate(new Date());
-      const todayExpenses = state.bills.filter((bill) => bill.type === "expense" && bill.date === today);
-      setText("todayExpense", money(sum(todayExpenses)));
-      setText("todayCount", `${todayExpenses.length} 笔`);
-      setText("monthExpense", money(monthExpense));
-      setText("monthIncome", money(monthIncome));
-      setText("monthBalance", money(balance));
-      setText("balanceNote", balance > 0 ? "本月有结余" : balance < 0 ? "本月已超支" : "收支持平");
-      setText("topCategory", topCategory ? `${getIcon("expense", topCategory.name)} ${topCategory.name}` : "暂无");
-      setText("topCategoryAmount", topCategory ? money(topCategory.amount) : "¥0.00");
-      const budget = getBudgetForMonth(state.selectedMonth);
-      setText("budgetRemain", budget ? money(budget - monthExpense) : "未设置");
-      setText("budgetMiniNote", budget ? `预算 ${money(budget)}` : "设置预算后显示");
-    }
-
-    function renderBudget(monthExpense) {
-      const budget = getBudgetForMonth(state.selectedMonth);
-      const percent = budget ? Math.round((monthExpense / budget) * 100) : 0;
-      const left = budget ? roundMoney(budget - monthExpense) : 0;
-      setText("budgetTotal", budget ? money(budget) : "未设置");
-      setText("budgetUsed", money(monthExpense));
-      setText("budgetLeft", budget ? money(left) : "未设置");
-      setText("budgetPercent", budget ? `${percent}%` : "0%");
-      document.querySelector("#budgetProgress").style.width = `${Math.min(percent, 100)}%`;
-      document.querySelector("#budgetProgress").style.background = percent >= 100 ? "var(--expense)" : percent >= 80 ? "var(--warning)" : "var(--primary)";
-      const alert = document.querySelector("#budgetAlert");
-      alert.className = percent >= 100 ? "notice danger" : percent >= 80 ? "notice" : "notice good";
-      alert.textContent = !budget ? "设置预算后，这里会显示预算提醒。" :
-        percent >= 100 ? "本月已经超支，请停止非必要消费。" :
-        percent >= 80 ? "预算已使用超过 80%，注意控制支出。" :
-        "预算使用健康，继续保持。";
-    }
-
-    function renderCategoryDonut(categoryTotals, total) {
-      const empty = document.querySelector("#categoryEmpty");
-      const chartEl = document.querySelector("#categoryChart");
-      const list = document.querySelector("#categoryList");
-      if (!total) {
-        empty.style.display = "grid";
-        chartEl.style.display = "none";
-        list.innerHTML = "";
-      } else {
-        empty.style.display = "none";
-        chartEl.style.display = "block";
-        const data = Object.entries(categoryTotals).map(([name, value]) => ({ name, value }));
-        const option = {
-          color: ["#0f5d52", "#16875c", "#256f8f", "#c47a13", "#d95845", "#7b8794", "#8a6f3a"],
-          tooltip: { trigger: "item", formatter: "{b}<br/>¥{c} ({d}%)" },
-          series: [{ type: "pie", radius: ["58%", "78%"], center: ["50%", "50%"], label: { show: false }, data }]
-        };
-        if (charts.categoryChart) charts.categoryChart.setOption(option);
-        if (charts.statsCategoryChart) charts.statsCategoryChart.setOption(option);
-        list.innerHTML = data.sort((a, b) => b.value - a.value).map((item) => {
-          const percent = Math.round(item.value / total * 100);
-          return `<div class="category-row"><span class="cat-icon">${getIcon("expense", item.name)}</span><div class="row-main"><strong>${escapeHtml(item.name)}</strong><span>${money(item.value)} · ${percent}%</span></div><strong>${percent}%</strong></div>`;
-        }).join("");
+    function normalizeCloudBudgets(monthlyBudget) {
+      if (typeof monthlyBudget === "number") {
+        return monthlyBudget >= 0 ? { [state.selectedMonth]: roundMoney(monthlyBudget) } : {};
       }
-    }
-
-    function renderSevenDayTrend() {
-      const days = getRecentDays(7);
-      const values = days.map((day) => sum(state.bills.filter((bill) => bill.type === "expense" && bill.date === day.value)));
-      if (!charts.trendChart) return;
-      charts.trendChart.setOption({
-        color: ["#d95845"],
-        grid: { left: 34, right: 12, top: 24, bottom: 28 },
-        tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: days.map((d) => d.label), axisTick: { show: false } },
-        yAxis: { type: "value", min: 0, splitLine: { lineStyle: { color: "#edf1ef" } } },
-        series: [{ data: values, type: "line", smooth: true, areaStyle: { opacity: .08 }, symbolSize: 7 }]
-      });
-    }
-
-    function renderThirtyDayBars() {
-      const days = getRecentDays(30);
-      const income = days.map((day) => sum(state.bills.filter((bill) => bill.type === "income" && bill.date === day.value)));
-      const expense = days.map((day) => sum(state.bills.filter((bill) => bill.type === "expense" && bill.date === day.value)));
-      const option = {
-        color: ["#16875c", "#d95845"],
-        legend: { top: 0 },
-        grid: { left: 36, right: 10, top: 34, bottom: 32 },
-        tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: days.map((d) => d.short), axisTick: { show: false }, axisLabel: { interval: 4 } },
-        yAxis: { type: "value", min: 0, splitLine: { lineStyle: { color: "#edf1ef" } } },
-        series: [
-          { name: "收入", type: "bar", data: income, barMaxWidth: 12 },
-          { name: "支出", type: "bar", data: expense, barMaxWidth: 12 }
-        ]
-      };
-      if (charts.barChart) charts.barChart.setOption(option);
-      if (charts.statsBarChart) charts.statsBarChart.setOption(option);
-    }
-
-    function renderTopRanks(categoryTotals, total) {
-      const list = document.querySelector("#topRankList");
-      const items = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 5);
-      if (!items.length) {
-        list.innerHTML = '<div class="empty">没有支出数据，先记一笔开始排行。</div>';
-        return;
-      }
-      list.innerHTML = items.map(([name, amount]) => {
-        const percent = total ? Math.round(amount / total * 100) : 0;
-        return `<div class="rank-row"><span class="cat-icon">${getIcon("expense", name)}</span><div class="row-main"><strong>${escapeHtml(name)}</strong><span>${money(amount)} · ${percent}%</span><div class="bar-track"><div class="bar-fill" style="width:${percent}%"></div></div></div><strong>${percent}%</strong></div>`;
-      }).join("");
-    }
-
-    function renderTags(expenses, monthExpense) {
-      const growth = sum(expenses.filter((b) => b.tag === "成长投资"));
-      const impulse = sum(expenses.filter((b) => b.tag === "冲动消费" || b.impulse));
-      const avoidable = sum(expenses.filter((b) => b.tag === "可避免支出" || b.category === "浪费支出"));
-      const wasteRatio = monthExpense ? Math.round(((impulse + avoidable) / monthExpense) * 100) : 0;
-      setText("growthTotal", money(growth));
-      setText("impulseTotal", money(impulse));
-      setText("avoidableTotal", money(avoidable));
-      setText("wasteRatio", `${wasteRatio}%`);
-      const advice = document.querySelector("#tagAdvice");
-      const impulseRatio = monthExpense ? impulse / monthExpense : 0;
-      advice.className = impulseRatio > .2 ? "notice danger" : "notice good";
-      advice.textContent = impulseRatio > .2 ? "冲动消费偏高，本月需要收紧非必要开支。" : "本月浪费支出处于可控范围。";
-    }
-
-    function renderScore(monthExpense, monthIncome, balance, expenses) {
-      const budget = getBudgetForMonth(state.selectedMonth);
-      const growth = sum(expenses.filter((b) => b.tag === "成长投资"));
-      const impulse = sum(expenses.filter((b) => b.tag === "冲动消费" || b.impulse));
-      const avoidable = sum(expenses.filter((b) => b.tag === "可避免支出" || b.category === "浪费支出"));
-      const growthRatio = monthExpense ? growth / monthExpense : 0;
-      const impulseRatio = monthExpense ? impulse / monthExpense : 0;
-      const avoidableRatio = monthExpense ? avoidable / monthExpense : 0;
-      let score = 70;
-      if (balance > 0) score += 10;
-      if (!budget || monthExpense <= budget) score += 10;
-      if (growthRatio >= .1 && growthRatio <= .3) score += 10;
-      if (impulseRatio > .2) score -= 15;
-      if (avoidableRatio > .3) score -= 10;
-      if (budget && monthExpense > budget) score -= 20;
-      score = Math.max(0, Math.min(100, score));
-      const text = score >= 90 ? "财务纪律优秀" : score >= 75 ? "整体不错，继续保持" : score >= 60 ? "支出需要控制" : "消费结构失控，需要立刻收紧";
-      if (charts.scoreChart) charts.scoreChart.setOption({
-        series: [{
-          type: "gauge", min: 0, max: 100, radius: "96%", progress: { show: true, width: 14 },
-          axisLine: { lineStyle: { width: 14, color: [[.6, "#d95845"], [.75, "#c47a13"], [1, "#0f5d52"]] } },
-          axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, pointer: { show: false },
-          detail: { valueAnimation: true, formatter: "{value}分", fontSize: 30, color: "#14211f" },
-          data: [{ value: score }]
-        }]
-      });
-      const advice = document.querySelector("#scoreAdvice");
-      advice.className = score >= 75 ? "notice good" : score >= 60 ? "notice" : "notice danger";
-      advice.textContent = text;
-    }
-
-    function renderReports(monthExpense, monthIncome, categoryTotals, topCategory) {
-      const weekRange = getWeekRange(new Date());
-      const weekBills = getBillsByRange(weekRange.start, weekRange.end);
-      const lastWeekBills = getBillsByRange(addDays(weekRange.start, -7), addDays(weekRange.end, -7));
-      const weekExpenses = weekBills.filter((b) => b.type === "expense");
-      const weekExpense = sum(weekExpenses);
-      const lastWeekExpense = sum(lastWeekBills.filter((b) => b.type === "expense"));
-      const weekTop = getTopCategory(getCategoryTotals(weekExpenses));
-      const lastMonthExpense = sum(getBillsByMonth(getPreviousMonth(state.selectedMonth)).filter((b) => b.type === "expense"));
-      const fixedTotal = sum(state.fixedExpenses);
-      setText("weekExpense", money(weekExpense));
-      setText("weekCompare", formatCompare(weekExpense, lastWeekExpense));
-      setText("weekTopCategory", weekTop ? `${getIcon("expense", weekTop.name)} ${weekTop.name}` : "暂无");
-      setText("weekImpulse", money(sum(weekExpenses.filter((b) => b.tag === "冲动消费" || b.impulse))));
-      setText("weekAdvice", makeAdvice(weekExpense, lastWeekExpense, weekTop, "周"));
-      setText("reportMonthExpense", money(monthExpense));
-      setText("monthCompare", formatCompare(monthExpense, lastMonthExpense));
-      setText("monthTopCategoryReport", topCategory ? `${getIcon("expense", topCategory.name)} ${topCategory.name}` : "暂无");
-      setText("fixedMonthlyTotal", money(fixedTotal));
-      setText("monthAdvice", makeMonthAdvice(monthExpense, monthIncome, topCategory, fixedTotal));
-    }
-
-    function renderTransactions() {
-      const monthBills = getBillsByMonth(state.selectedMonth);
-      const filtered = state.searchText ? monthBills.filter((b) => (b.note || "").toLowerCase().includes(state.searchText)) : monthBills;
-      const sorted = [...filtered].sort(sortBillsDesc);
-      document.querySelector("#listCount").textContent = state.searchText ? `${sorted.length} 条匹配` : `${sorted.length} 条记录`;
-      document.querySelector("#billList").innerHTML = sorted.length ? sorted.map(renderTransaction).join("") : '<div class="empty">当前月份没有账单。</div>';
-      document.querySelector("#recentList").innerHTML = state.bills.length ? [...state.bills].sort(sortBillsDesc).slice(0, 10).map(renderTransaction).join("") : '<div class="empty">还没有交易记录。</div>';
-      document.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => deleteBill(button.dataset.delete)));
-    }
-
-    function renderTransaction(bill) {
-      const sign = bill.type === "income" ? "+" : "-";
-      const amountClass = bill.type === "income" ? "income-text" : "expense-text";
-      const typeText = bill.type === "income" ? "收入" : "支出";
-      return `<div class="transaction-item">
-        <span class="cat-icon">${getIcon(bill.type, bill.category)}</span>
-        <div class="row-main"><strong>${escapeHtml(bill.category)} <span class="tag">${escapeHtml(bill.tag)}</span></strong><span>${bill.date} · ${typeText}${bill.note ? " · " + escapeHtml(bill.note) : ""}</span></div>
-        <div class="amount ${amountClass}">${sign}${money(bill.amount)}</div>
-        <button class="icon-btn" type="button" aria-label="删除" data-delete="${bill.id}">×</button>
-      </div>`;
-    }
-
-    function renderSavingGoal(balance) {
-      const target = Number(state.savingGoal.target || 0);
-      const current = Number(state.savingGoal.current || 0);
-      const left = Math.max(roundMoney(target - current), 0);
-      setText("savingLeft", target ? money(left) : "未设置");
-      setText("savingEta", !target ? "未设置" : !left ? "已完成" : balance <= 0 ? "暂无结余" : `约 ${Math.max(1, Math.ceil(left / balance))} 个月`);
-    }
-
-    function renderFixedExpenses() {
-      const total = sum(state.fixedExpenses);
-      document.querySelector("#fixedReminder").textContent = state.fixedExpenses.length ? `固定支出预计 ${money(total)}，建议每月 1 日预留并检查。` : "添加固定支出后，每月会提醒你预留。";
-      document.querySelector("#fixedList").innerHTML = state.fixedExpenses.length ? state.fixedExpenses.map((item) => `<div class="category-row"><span class="cat-icon">${getIcon("expense", item.name)}</span><div class="row-main"><strong>${escapeHtml(item.name)}</strong><span>每月 ${money(item.amount)}</span></div><button class="icon-btn" type="button" data-delete-fixed="${item.id}">×</button></div>`).join("") : '<div class="empty">还没有固定支出项目。</div>';
-      document.querySelectorAll("[data-delete-fixed]").forEach((button) => button.addEventListener("click", () => {
-        state.fixedExpenses = state.fixedExpenses.filter((item) => item.id !== button.dataset.deleteFixed);
-        saveFixedExpenses();
-        renderAll();
-      }));
-    }
-
-    function handleAddBill(event) {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const amountInput = getFormField(form, "amount");
-      const amount = Number(amountInput.value);
-      if (!amountInput.value.trim() || Number.isNaN(amount) || amount <= 0) {
-        showMessage(form, "金额不能为空，且必须大于 0。", "error");
-        return;
-      }
-      const type = new FormData(form).get("type");
-      const bill = {
-        id: getId(),
-        type,
-        amount: roundMoney(amount),
-        category: getFormField(form, "category").value,
-        tag: getFormField(form, "tag").value,
-        date: getFormField(form, "date").value || formatDate(new Date()),
-        note: getFormField(form, "note").value.trim(),
-        impulse: type === "expense" && getFormField(form, "tag").value === "冲动消费",
-        createdAt: new Date().toISOString()
-      };
-      state.bills.push(bill);
-      saveBills();
-      amountInput.value = "";
-      getFormField(form, "note").value = "";
-      showMessage(form, "已记录", "success");
-      renderAll();
-      if (form.id === "drawerBillForm") window.setTimeout(closeDrawer, 380);
-    }
-
-    function updateCategoryAndTagOptions(form) {
-      const targets = form ? [form] : els.forms;
-      targets.forEach((target) => {
-        const type = new FormData(target).get("type") || "expense";
-        const categorySelect = getFormField(target, "category");
-        const tagSelect = getFormField(target, "tag");
-        const categories = type === "income" ? incomeCategories : expenseCategories;
-        const tags = type === "income" ? incomeTags : expenseTags;
-        categorySelect.innerHTML = Object.keys(categories).map((name) => `<option value="${name}">${categories[name]} ${name}</option>`).join("");
-        tagSelect.innerHTML = tags.map((name) => `<option value="${name}">${name}</option>`).join("");
-      });
-    }
-
-    function fillQuickBill(form, label, category) {
-      form.querySelector("input[value='expense']").checked = true;
-      updateCategoryAndTagOptions(form);
-      getFormField(form, "category").value = category;
-      getFormField(form, "note").value = label;
-      getFormField(form, "amount").focus();
-    }
-
-    function saveBudget(event) {
-      event.preventDefault();
-      const value = Number(els.budgetInput.value);
-      if (!els.budgetInput.value.trim()) delete state.budgets[state.selectedMonth];
-      else if (Number.isNaN(value) || value < 0) return;
-      else state.budgets[state.selectedMonth] = roundMoney(value);
-      saveBudgets();
-      renderAll();
-    }
-
-    function saveSavingGoalFromForm(event) {
-      event.preventDefault();
-      state.savingGoal = normalizeSavingGoal({ target: els.savingTarget.value, current: els.savingCurrent.value });
-      saveSavingGoal();
-      renderAll();
-    }
-
-    function saveFixedExpense(event) {
-      event.preventDefault();
-      const amount = Number(els.fixedAmount.value);
-      if (!els.fixedAmount.value.trim() || Number.isNaN(amount) || amount <= 0) return;
-      const index = state.fixedExpenses.findIndex((item) => item.name === els.fixedName.value);
-      const item = { id: index >= 0 ? state.fixedExpenses[index].id : getId(), name: els.fixedName.value, amount: roundMoney(amount), remindDay: 1, updatedAt: new Date().toISOString() };
-      if (index >= 0) state.fixedExpenses[index] = item;
-      else state.fixedExpenses.push(item);
-      els.fixedAmount.value = "";
-      saveFixedExpenses();
-      renderAll();
-    }
-
-    function deleteBill(id) {
-      state.bills = state.bills.filter((bill) => bill.id !== id);
-      saveBills();
-      renderAll();
-    }
-
-    function exportData() {
-      const payload = { app: "personal-wealth-discipline", exportedAt: new Date().toISOString(), bills: state.bills, budgets: state.budgets, fixedExpenses: state.fixedExpenses, savingGoal: state.savingGoal };
-      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `wealth-discipline-${formatDate(new Date())}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result);
-          const importedBills = Array.isArray(parsed) ? parsed : parsed.bills;
-          if (!Array.isArray(importedBills)) throw new Error("JSON 中没有账单数组");
-          state.bills = importedBills.map(normalizeBill).filter(Boolean);
-          state.budgets = normalizeBudgets(parsed.budgets);
-          state.fixedExpenses = normalizeFixedExpenses(parsed.fixedExpenses);
-          state.savingGoal = normalizeSavingGoal(parsed.savingGoal);
-          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
-          els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
-          els.savingTarget.value = state.savingGoal.target || "";
-          els.savingCurrent.value = state.savingGoal.current || "";
-          renderAll();
-        } catch (error) {
-          alert(`导入失败：${error.message}`);
-        } finally {
-          els.importFile.value = "";
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function clearAllData() {
-      if (!confirm("确定要清空所有数据吗？")) return;
-      if (!confirm("此操作不可恢复，请再次确认。")) return;
-      state.bills = [];
-      state.budgets = {};
-      state.fixedExpenses = [];
-      state.savingGoal = { target: 0, current: 0 };
-      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal();
-      renderAll();
-    }
-
-    function switchView(viewId) {
-      state.activeView = viewId;
-      els.views.forEach((view) => view.classList.toggle("active", view.id === viewId));
-      els.navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
-      const subtitles = { homeView: "收入、支出、预算、浪费与成长投资一屏看清", statsView: "用趋势和报表检查消费是否失控", mineView: "管理账单、目标、固定支出和数据备份" };
-      document.querySelector("#pageSubtitle").textContent = subtitles[viewId] || subtitles.homeView;
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      Object.values(charts).forEach((chart) => window.setTimeout(() => chart.resize(), 80));
-    }
-
-    function openDrawer() {
-      els.drawer.classList.add("open");
-      els.drawer.setAttribute("aria-hidden", "false");
-      updateCategoryAndTagOptions(document.querySelector("#drawerBillForm"));
-    }
-    function closeDrawer() {
-      els.drawer.classList.remove("open");
-      els.drawer.setAttribute("aria-hidden", "true");
-      els.navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === state.activeView));
-    }
-
-    function loadBills() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw).map(normalizeBill).filter(Boolean) : [];
-      } catch { return []; }
-    }
-    function saveBills() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.bills)); }
-    function loadBudgets() {
-      try { return normalizeBudgets(JSON.parse(localStorage.getItem(BUDGET_KEY) || "{}")); } catch { return {}; }
-    }
-    function saveBudgets() { localStorage.setItem(BUDGET_KEY, JSON.stringify(state.budgets)); }
-    function loadFixedExpenses() {
-      try { return normalizeFixedExpenses(JSON.parse(localStorage.getItem(FIXED_KEY) || "[]")); } catch { return []; }
-    }
-    function saveFixedExpenses() { localStorage.setItem(FIXED_KEY, JSON.stringify(state.fixedExpenses)); }
-    function loadSavingGoal() {
-      try { return normalizeSavingGoal(JSON.parse(localStorage.getItem(SAVING_KEY) || "{}")); } catch { return { target: 0, current: 0 }; }
-    }
-    function saveSavingGoal() { localStorage.setItem(SAVING_KEY, JSON.stringify(state.savingGoal)); }
-
-    function normalizeBill(bill) {
-      if (!bill || typeof bill !== "object") return null;
-      const type = bill.type === "income" ? "income" : "expense";
-      const amount = Number(bill.amount);
-      if (!amount || amount <= 0) return null;
-      const categoryPool = type === "income" ? incomeCategories : expenseCategories;
-      let category = bill.category;
-      if (type === "expense" && legacyExpenseCategories.includes(category)) category = category;
-      if (!categoryPool[category]) category = "其他";
-      const tagPool = type === "income" ? incomeTags : expenseTags;
-      let tag = bill.tag || (type === "income" ? "其他" : bill.impulse ? "冲动消费" : "必要支出");
-      if (!tagPool.includes(tag)) tag = type === "income" ? "其他" : "必要支出";
-      return {
-        id: bill.id || getId(),
-        type,
-        amount: roundMoney(amount),
-        category,
-        tag,
-        date: /^\d{4}-\d{2}-\d{2}$/.test(bill.date) ? bill.date : formatDate(new Date()),
-        note: typeof bill.note === "string" ? bill.note : "",
-        impulse: Boolean(bill.impulse || tag === "冲动消费"),
-        createdAt: bill.createdAt || new Date().toISOString()
-      };
-    }
-
-    function normalizeBudgets(budgets) {
-      if (!budgets || typeof budgets !== "object" || Array.isArray(budgets)) return {};
-      return Object.entries(budgets).reduce((result, [month, value]) => {
-        const amount = Number(value);
-        if (/^\d{4}-\d{2}$/.test(month) && amount >= 0) result[month] = roundMoney(amount);
-        return result;
-      }, {});
+      return normalizeBudgets(monthlyBudget);
     }
     function normalizeFixedExpenses(items) {
-      const allowed = ["房租", "水电", "会员订阅", "话费"];
-      return Array.isArray(items) ? items.map((item) => {
-        const amount = Number(item && item.amount);
-        if (!item || !allowed.includes(item.name) || !amount || amount <= 0) return null;
-        return { id: item.id || getId(), name: item.name, amount: roundMoney(amount), remindDay: 1, updatedAt: item.updatedAt || new Date().toISOString() };
-      }).filter(Boolean) : [];
-    }
-    function normalizeSavingGoal(goal) {
-      if (!goal || typeof goal !== "object") return { target: 0, current: 0 };
-      const target = Number(goal.target || 0);
-      const current = Number(goal.current || 0);
-      return { target: Number.isFinite(target) ? Math.max(roundMoney(target), 0) : 0, current: Number.isFinite(current) ? Math.max(roundMoney(current), 0) : 0 };
+<head>
+  <link rel="apple-touch-icon" href="./Commit%20changes.png">
+  <link rel="icon" type="image/png" href="./Commit%20changes.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="财富纪律">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#006b2f">
+  <meta charset="UTF-8" />
+
+      if (hasLocalData && hasRemoteData) {
+        const shouldMerge = confirm("检测到本地和云端都有数据，是否将本地数据合并到云端？选择取消则使用云端数据覆盖本地。");
+        if (shouldMerge) {
+          const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+          await writeSnapshotToCloud(mergedSnapshot, true);
+          applySnapshot(mergedSnapshot);
+          return;
+        }
+      }
+
+      applySnapshot(remoteSnapshot);
+
+    function mergeSnapshots(remoteSnapshot, localSnapshot) {
+      const billsById = new Map();
+      [...remoteSnapshot.bills, ...localSnapshot.bills].forEach((bill) => billsById.set(bill.id, bill));
+      const fixedByName = new Map();
+      [...remoteSnapshot.fixedExpenses, ...localSnapshot.fixedExpenses].forEach((item) => fixedByName.set(item.name, item));
+      return {
+        bills: [...billsById.values()].map(normalizeBill).filter(Boolean),
+        budgets: normalizeBudgets({ ...remoteSnapshot.budgets, ...localSnapshot.budgets }),
+        fixedExpenses: normalizeFixedExpenses([...fixedByName.values()]),
+        savingGoal: normalizeSavingGoal(localSnapshot.savingGoal.target || localSnapshot.savingGoal.current ? localSnapshot.savingGoal : remoteSnapshot.savingGoal)
+      };
     }
 
-    function getBillsByMonth(month) { return state.bills.filter((bill) => bill.date.startsWith(month)); }
-    function getBudgetForMonth(month) { return Number(state.budgets[month] || 0); }
-    function getCategoryTotals(expenses) {
-      return expenses.reduce((totals, bill) => {
-        totals[bill.category] = roundMoney((totals[bill.category] || 0) + bill.amount);
-        return totals;
-      }, {});
-    }
-    function getTopCategory(totals) {
-      return Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([name, amount]) => ({ name, amount }))[0];
-    }
-    function getRecentDays(count) {
-      return Array.from({ length: count }, (_, index) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (count - 1 - index));
-        return { value: formatDate(date), label: `${date.getMonth() + 1}/${date.getDate()}`, short: `${date.getMonth() + 1}/${date.getDate()}` };
-      });
-    }
-    function getBillsByRange(startDate, endDate) {
-      const start = startOfDay(startDate).getTime();
-      const end = startOfDay(endDate).getTime();
-      return state.bills.filter((bill) => {
-        const time = startOfDay(new Date(`${bill.date}T00:00:00`)).getTime();
-        return time >= start && time <= end;
-      });
-    }
-    function getWeekRange(date) {
-      const day = startOfDay(date);
-      const dayIndex = day.getDay() || 7;
-      const start = addDays(day, 1 - dayIndex);
-      return { start, end: addDays(start, 6) };
-    }
-    function getPreviousMonth(month) {
-      const date = new Date(`${month}-01T00:00:00`);
-      date.setMonth(date.getMonth() - 1);
-      return formatMonth(date);
-    }
-    function makeAdvice(current, previous, topCategory, period) {
-      if (!current) return `${period}内还没有支出记录，先保持记账习惯。`;
-      if (previous && current > previous) return `${period}支出比上个周期增加，重点关注${topCategory ? "「" + topCategory.name + "」" : "高频小额消费"}。`;
-      return topCategory ? `最大支出在「${topCategory.name}」，下次消费前先确认是否必要。` : "支出节奏比较平稳。";
-    }
-    function makeMonthAdvice(monthExpense, monthIncome, topCategory, fixedTotal) {
-      const expenses = getBillsByMonth(state.selectedMonth).filter((b) => b.type === "expense");
-      const impulse = sum(expenses.filter((b) => b.tag === "冲动消费" || b.impulse));
-      if (!monthExpense) return "本月还没有支出记录，建议先记录固定支出和日常消费。";
-      if (monthIncome && monthExpense > monthIncome) return "本月支出已超过收入，优先压缩非必要消费。";
-      if (monthExpense && impulse / monthExpense > .2) return "冲动消费偏高，本月需要收紧非必要开支。";
-      if (fixedTotal > monthExpense * .5) return "固定支出占比较高，可以检查订阅、话费和房租相关成本。";
-      return topCategory ? `「${topCategory.name}」是本月主要支出，可考虑单独设预算。` : "本月消费结构比较平稳。";
-    }
-    function formatCompare(current, previous) {
-      const diff = roundMoney(current - previous);
-      if (!current && !previous) return "持平";
-      if (!previous) return `多 ${money(current)}`;
-      if (diff > 0) return `多 ${money(diff)}`;
-      if (diff < 0) return `少 ${money(Math.abs(diff))}`;
-      return "持平";
-    }
-    function sortBillsDesc(a, b) {
-      return new Date(b.date) - new Date(a.date) || new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date);
-    }
-    function getIcon(type, category) { return (type === "income" ? incomeCategories : expenseCategories)[category] || (type === "income" ? "💰" : "📌"); }
-    function showMessage(form, text, type) {
-      const node = getFormField(form, "formMessage");
-      node.textContent = text;
-      node.className = `message ${type || ""}`;
-      window.clearTimeout(node.timer);
-      node.timer = window.setTimeout(() => { node.textContent = ""; node.className = "message"; }, 1800);
-    }
-    function setText(id, value) { const node = document.getElementById(id); if (node) node.textContent = value; }
-    function getFormField(form, name) {
-      return form.querySelector(`#${name}`) || form.querySelector(`#drawer${capitalize(name)}`);
-    }
-    function sum(items) { return roundMoney(items.reduce((total, item) => total + Number(item.amount || 0), 0)); }
-    function roundMoney(value) { return Math.round(Number(value) * 100) / 100; }
-    function money(value) { return `¥${Number(value || 0).toFixed(2)}`; }
-    function addDays(date, days) { const next = new Date(date); next.setDate(next.getDate() + days); return next; }
-    function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
-    function formatDate(date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-    function formatMonth(date) { return formatDate(date).slice(0, 7); }
-    function getId() { return globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()); }
-    function escapeHtml(value) {
-      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-    }
-    function capitalize(value) { return value.charAt(0).toUpperCase() + value.slice(1); }
-  </script>
-</body>
-</html>
+    async function cloudUpsertTransaction(bill) {
