@@ -533,7 +533,7 @@
           <span class="sync-dot"></span>
           <span id="syncStatus">未登录，仅本地保存</span>
           <span id="syncUser" class="sync-user"></span>
-          <button id="googleLoginBtn" class="btn" type="button">Google 登录</button>
+          <button id="loginBtn" class="btn" type="button">Google 登录</button>
           <button id="logoutBtn" class="btn" type="button" style="display:none">退出</button>
         </div>
         <label class="month-filter">
@@ -779,18 +779,11 @@
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
       signOut,
-      onAuthStateChanged,
-      setPersistence,
-      browserLocalPersistence
+      onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
     import {
       getFirestore,
-      initializeFirestore,
-      persistentLocalCache,
-      persistentMultipleTabManager,
       collection,
       doc,
       getDocs,
@@ -813,33 +806,14 @@
 
     const firebaseApp = initializeApp(firebaseConfig);
     const auth = getAuth(firebaseApp);
-    await setPersistence(auth, browserLocalPersistence).catch((error) => {
-      console.warn("Auth persistence setup failed:", error);
-    });
-    const db = initFirestoreWithOfflineCache(firebaseApp);
+    const db = getFirestore(firebaseApp);
     const googleProvider = new GoogleAuthProvider();
-    console.log("Firebase 初始化完成");
 
     const STORAGE_KEY = "personal-bills-v1";
     const BUDGET_KEY = "personal-budgets-v1";
     const FIXED_KEY = "personal-fixed-expenses-v1";
     const SAVING_KEY = "personal-saving-goal-v1";
     const FUNDS_KEY = "personal-total-funds-v1";
-    const SETTINGS_PENDING_KEY = "personal-settings-pending-v1";
-    const DELETE_QUEUE_KEY = "personal-delete-queue-v1";
-
-    function initFirestoreWithOfflineCache(app) {
-      try {
-        return initializeFirestore(app, {
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager()
-          })
-        });
-      } catch (error) {
-        console.warn("Firestore offline persistence unavailable, fallback to default cache:", error);
-        return getFirestore(app);
-      }
-    }
 
     const expenseCategories = {
       "餐饮": "🍜", "交通": "🚌", "房租": "🏠", "水电": "💡", "健身": "🏋️", "学习": "📚",
@@ -857,8 +831,6 @@
       fixedExpenses: loadFixedExpenses(),
       savingGoal: loadSavingGoal(),
       totalFunds: loadTotalFunds(),
-      settingsPendingSync: loadSettingsPending(),
-      deleteQueue: loadDeleteQueue(),
       selectedMonth: formatMonth(new Date()),
       activeView: "homeView",
       searchText: ""
@@ -891,14 +863,6 @@
       updateCategoryAndTagOptions();
       renderAll();
       initAuthSync();
-      syncPendingData();
-      window.addEventListener("online", () => {
-        updateSyncStatus(cloud.user ? "正在同步..." : "未登录，仅本地保存", cloud.user ? "busy" : "");
-        syncPendingData();
-      });
-      window.addEventListener("offline", () => {
-        updateSyncStatus("离线模式，本地保存", "busy");
-      });
     }
 
     function mountBillForm() {
@@ -935,7 +899,7 @@
         syncCard: document.querySelector("#syncCard"),
         syncStatus: document.querySelector("#syncStatus"),
         syncUser: document.querySelector("#syncUser"),
-        loginBtn: document.querySelector("#googleLoginBtn"),
+        loginBtn: document.querySelector("#loginBtn"),
         logoutBtn: document.querySelector("#logoutBtn"),
         drawer: document.querySelector("#drawer"),
         forms: [document.querySelector("#billForm"), document.querySelector("#drawerBillForm")],
@@ -973,13 +937,7 @@
       document.querySelector("#importBtn").addEventListener("click", () => els.importFile.click());
       els.importFile.addEventListener("change", importData);
       document.querySelector("#clearBtn").addEventListener("click", clearAllData);
-      const googleLoginBtn = document.getElementById("googleLoginBtn");
-      if (googleLoginBtn) {
-        googleLoginBtn.addEventListener("click", handleGoogleLogin);
-        console.log("登录按钮绑定完成");
-      } else {
-        console.error("找不到 Google 登录按钮");
-      }
+      els.loginBtn.addEventListener("click", loginWithGoogle);
       els.logoutBtn.addEventListener("click", logout);
 
       els.navButtons.forEach((button) => {
@@ -1002,20 +960,12 @@
 
     function initAuthSync() {
       updateSyncStatus("未登录，仅本地保存");
-      getRedirectResult(auth).then((result) => {
-        if (result && result.user) {
-          console.log("Google Redirect 登录完成", result.user.email || result.user.displayName || result.user.uid);
-        }
-      }).catch((error) => {
-        console.error("Google Redirect 登录失败", error);
-        alert("登录失败：" + error.code + " " + error.message);
-      });
       onAuthStateChanged(auth, async (user) => {
         stopCloudListeners();
         cloud.user = user;
         cloud.ready = Boolean(user);
         if (!user) {
-          updateSyncStatus(navigator.onLine ? "未登录，仅本地保存" : "离线模式，本地保存");
+          updateSyncStatus("未登录，仅本地保存");
           renderAll();
           return;
         }
@@ -1024,8 +974,7 @@
         try {
           await loadCloudDataAndMaybeMigrate();
           startCloudListeners();
-          await syncPendingData();
-          updateSyncStatus(navigator.onLine ? "云同步已开启" : "离线模式，本地保存", navigator.onLine ? "online" : "busy");
+          updateSyncStatus("云同步已开启", "online");
         } catch (error) {
           console.error(error);
           updateSyncStatus("云同步失败，请检查 Firebase 规则", "busy");
@@ -1034,30 +983,15 @@
       });
     }
 
-    async function handleGoogleLogin() {
-      console.log("Google 登录按钮被点击");
+    async function loginWithGoogle() {
       try {
-        updateSyncStatus("正在打开 Google 登录...", "busy");
-        await setPersistence(auth, browserLocalPersistence);
-        if (isMobileDevice()) {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
-        try {
-          await signInWithPopup(auth, googleProvider);
-        } catch (popupError) {
-          console.warn("Popup 登录失败，改用 Redirect", popupError);
-          await signInWithRedirect(auth, googleProvider);
-        }
+        updateSyncStatus("正在登录...", "busy");
+        await signInWithPopup(auth, googleProvider);
       } catch (error) {
-        console.error("Google 登录失败", error);
+        console.error(error);
         updateSyncStatus("登录失败，仍使用本地保存");
-        alert("登录失败：" + error.code + " " + error.message);
+        alert(`Google 登录失败：${error.message}`);
       }
-    }
-
-    function isMobileDevice() {
-      return /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) || window.matchMedia("(max-width: 760px)").matches;
     }
 
     async function logout() {
@@ -1065,7 +999,7 @@
       await signOut(auth);
       cloud.user = null;
       cloud.ready = false;
-      updateSyncStatus(navigator.onLine ? "未登录，仅本地保存" : "离线模式，本地保存");
+      updateSyncStatus("未登录，仅本地保存");
     }
 
     function updateSyncStatus(text, mode) {
@@ -1080,71 +1014,7 @@
 
     function handleCloudWriteError(error) {
       console.error(error);
-      updateSyncStatus("已保存到本地，联网后自动同步。", "busy");
-    }
-
-    async function syncPendingData() {
-      const pendingBills = state.bills.filter((bill) => bill.syncStatus === "pending" || bill.syncStatus === "failed");
-      const pendingCount = pendingBills.length + state.deleteQueue.length + (state.settingsPendingSync ? 1 : 0);
-      if (!cloud.user || !navigator.onLine) {
-        updatePendingStatus();
-        return;
-      }
-      if (!pendingCount) {
-        updateSyncStatus("云同步已开启", "online");
-        return;
-      }
-
-      updateSyncStatus("正在同步...", "busy");
-      let failed = false;
-
-      for (const bill of pendingBills) {
-        try {
-          await setDoc(doc(db, "users", cloud.user.uid, "transactions", bill.id), toFirestoreTransaction(bill), { merge: true });
-          bill.syncStatus = "synced";
-        } catch (error) {
-          console.error(error);
-          bill.syncStatus = "failed";
-          failed = true;
-        }
-      }
-      saveBills();
-
-      const remainingDeletes = [];
-      for (const id of state.deleteQueue) {
-        try {
-          await deleteDoc(doc(db, "users", cloud.user.uid, "transactions", id));
-        } catch (error) {
-          console.error(error);
-          remainingDeletes.push(id);
-          failed = true;
-        }
-      }
-      state.deleteQueue = remainingDeletes;
-      saveDeleteQueue();
-
-      if (state.settingsPendingSync) {
-        try {
-          await cloudSaveSettings();
-        } catch (error) {
-          console.error(error);
-          failed = true;
-        }
-      }
-
-      renderAll();
-      updateSyncStatus(failed ? "同步失败，请稍后重试" : "已同步", failed ? "busy" : "online");
-    }
-
-    function updatePendingStatus() {
-      const pendingCount = state.bills.filter((bill) => bill.syncStatus === "pending" || bill.syncStatus === "failed").length + state.deleteQueue.length + (state.settingsPendingSync ? 1 : 0);
-      if (!navigator.onLine) {
-        updateSyncStatus("离线模式，本地保存", "busy");
-      } else if (pendingCount) {
-        updateSyncStatus(`有待同步数据：${pendingCount} 条`, "busy");
-      } else {
-        updateSyncStatus(cloud.user ? "云同步已开启" : "未登录，仅本地保存", cloud.user ? "online" : "");
-      }
+      updateSyncStatus("云同步失败，已保存在本地", "busy");
     }
 
     function startCloudListeners() {
@@ -1179,24 +1049,13 @@
 
     function applyRemoteTransactions(bills) {
       cloud.applyingRemote = true;
-      const localPending = state.bills.filter((bill) => bill.syncStatus === "pending" || bill.syncStatus === "failed");
-      const localPendingIds = new Set(localPending.map((bill) => bill.id));
-      const remoteBills = bills
-        .map((bill) => normalizeBill({ ...bill, syncStatus: "synced" }))
-        .filter((bill) => bill && !state.deleteQueue.includes(bill.id));
-      const merged = new Map();
-      remoteBills.forEach((bill) => merged.set(bill.id, bill));
-      localPending.forEach((bill) => {
-        if (!merged.has(bill.id) || localPendingIds.has(bill.id)) merged.set(bill.id, bill);
-      });
-      state.bills = [...merged.values()];
+      state.bills = bills.map(normalizeBill).filter(Boolean);
       saveBills();
       cloud.applyingRemote = false;
       renderAll();
     }
 
     function applyRemoteSettings(settings) {
-      if (state.settingsPendingSync) return;
       cloud.applyingRemote = true;
       state.budgets = normalizeCloudBudgets(settings.monthlyBudget);
       state.fixedExpenses = normalizeFixedExpenses(settings.fixedExpenses);
@@ -1205,12 +1064,10 @@
         current: settings.currentSaving
       });
       state.totalFunds = normalizeTotalFunds(settings.totalFunds);
-      state.settingsPendingSync = false;
       saveBudgets();
       saveFixedExpenses();
       saveSavingGoal();
       saveTotalFunds();
-      saveSettingsPending();
       els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
       els.fundsInput.value = state.totalFunds || "";
       els.savingTarget.value = state.savingGoal.target || "";
@@ -1274,13 +1131,11 @@
       state.fixedExpenses = normalizeFixedExpenses(snapshot.fixedExpenses);
       state.savingGoal = normalizeSavingGoal(snapshot.savingGoal);
       state.totalFunds = normalizeTotalFunds(snapshot.totalFunds);
-      state.settingsPendingSync = false;
       saveBills();
       saveBudgets();
       saveFixedExpenses();
       saveSavingGoal();
       saveTotalFunds();
-      saveSettingsPending();
       els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
       els.fundsInput.value = state.totalFunds || "";
       els.savingTarget.value = state.savingGoal.target || "";
@@ -1318,9 +1173,7 @@
       updateSyncStatus("正在同步...", "busy");
       const payload = toFirestoreTransaction(bill);
       await setDoc(doc(db, "users", cloud.user.uid, "transactions", bill.id), payload, { merge: true });
-      bill.syncStatus = "synced";
-      saveBills();
-      await markSettingsPendingAndTrySync();
+      await cloudSaveSettings();
       updateSyncStatus("云同步已开启", "online");
     }
 
@@ -1328,15 +1181,13 @@
       if (!cloud.user || cloud.applyingRemote) return;
       updateSyncStatus("正在同步...", "busy");
       await deleteDoc(doc(db, "users", cloud.user.uid, "transactions", id));
-      await markSettingsPendingAndTrySync();
+      await cloudSaveSettings();
       updateSyncStatus("云同步已开启", "online");
     }
 
     async function cloudSaveSettings() {
       if (!cloud.user || cloud.applyingRemote) return;
       await setDoc(doc(db, "users", cloud.user.uid, "settings", "main"), toFirestoreSettings(), { merge: true });
-      state.settingsPendingSync = false;
-      saveSettingsPending();
     }
 
     async function cloudReplaceAllData() {
@@ -1344,16 +1195,6 @@
       updateSyncStatus("正在同步...", "busy");
       await writeSnapshotToCloud(getLocalSnapshot(), true);
       updateSyncStatus("云同步已开启", "online");
-    }
-
-    async function markSettingsPendingAndTrySync() {
-      state.settingsPendingSync = true;
-      saveSettingsPending();
-      if (!cloud.user || !navigator.onLine) {
-        updatePendingStatus();
-        return;
-      }
-      await cloudSaveSettings();
     }
 
     async function writeSnapshotToCloud(snapshot, clearRemoteFirst = false) {
@@ -1637,10 +1478,8 @@
       document.querySelectorAll("[data-delete-fixed]").forEach((button) => button.addEventListener("click", async () => {
         state.fixedExpenses = state.fixedExpenses.filter((item) => item.id !== button.dataset.deleteFixed);
         saveFixedExpenses();
-        state.settingsPendingSync = true;
-        saveSettingsPending();
+        await cloudSaveSettings();
         renderAll();
-        syncPendingData().catch(handleCloudWriteError);
       }));
     }
 
@@ -1663,20 +1502,17 @@
         date: getFormField(form, "date").value || formatDate(new Date()),
         note: getFormField(form, "note").value.trim(),
         impulse: type === "expense" && getFormField(form, "tag").value === "冲动消费",
-        createdAt: new Date().toISOString(),
-        syncStatus: "pending"
+        createdAt: new Date().toISOString()
       };
       state.bills.push(bill);
       state.totalFunds = applyBillToFunds(state.totalFunds, bill);
-      state.settingsPendingSync = true;
       saveBills();
       saveTotalFunds();
-      saveSettingsPending();
       amountInput.value = "";
       getFormField(form, "note").value = "";
       showMessage(form, "已记录", "success");
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
+      cloudUpsertTransaction(bill).catch(handleCloudWriteError);
       if (form.id === "drawerBillForm") window.setTimeout(closeDrawer, 380);
     }
 
@@ -1708,10 +1544,8 @@
       else if (Number.isNaN(value) || value < 0) return;
       else state.budgets[state.selectedMonth] = roundMoney(value);
       saveBudgets();
-      state.settingsPendingSync = true;
-      saveSettingsPending();
+      await cloudSaveSettings();
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
     }
 
     async function saveTotalFundsFromForm(event) {
@@ -1720,20 +1554,16 @@
       if (!els.fundsInput.value.trim() || Number.isNaN(value)) return;
       state.totalFunds = roundMoney(value);
       saveTotalFunds();
-      state.settingsPendingSync = true;
-      saveSettingsPending();
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
+      cloudSaveSettings().catch(handleCloudWriteError);
     }
 
     async function saveSavingGoalFromForm(event) {
       event.preventDefault();
       state.savingGoal = normalizeSavingGoal({ target: els.savingTarget.value, current: els.savingCurrent.value });
       saveSavingGoal();
-      state.settingsPendingSync = true;
-      saveSettingsPending();
+      await cloudSaveSettings();
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
     }
 
     async function saveFixedExpense(event) {
@@ -1746,10 +1576,8 @@
       else state.fixedExpenses.push(item);
       els.fixedAmount.value = "";
       saveFixedExpenses();
-      state.settingsPendingSync = true;
-      saveSettingsPending();
+      await cloudSaveSettings();
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
     }
 
     async function deleteBill(id) {
@@ -1758,13 +1586,8 @@
       if (deletedBill) state.totalFunds = reverseBillFromFunds(state.totalFunds, deletedBill);
       saveBills();
       saveTotalFunds();
-      state.deleteQueue.push(id);
-      state.deleteQueue = [...new Set(state.deleteQueue)];
-      saveDeleteQueue();
-      state.settingsPendingSync = true;
-      saveSettingsPending();
       renderAll();
-      syncPendingData().catch(handleCloudWriteError);
+      cloudDeleteTransaction(id).catch(handleCloudWriteError);
     }
 
     function exportData() {
@@ -1786,15 +1609,13 @@
           const parsed = JSON.parse(reader.result);
           const importedBills = Array.isArray(parsed) ? parsed : parsed.bills;
           if (!Array.isArray(importedBills)) throw new Error("JSON 中没有账单数组");
-          state.deleteQueue = [...new Set([...state.deleteQueue, ...state.bills.map((bill) => bill.id)])];
-          state.bills = importedBills.map(normalizeBill).filter(Boolean).map((bill) => ({ ...bill, syncStatus: cloud.user ? "pending" : bill.syncStatus }));
+          state.bills = importedBills.map(normalizeBill).filter(Boolean);
           state.budgets = normalizeBudgets(parsed.budgets);
           state.fixedExpenses = normalizeFixedExpenses(parsed.fixedExpenses);
           state.savingGoal = normalizeSavingGoal(parsed.savingGoal);
           state.totalFunds = normalizeTotalFunds(parsed.totalFunds);
-          state.settingsPendingSync = true;
-          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds(); saveSettingsPending(); saveDeleteQueue();
-          syncPendingData().catch(handleCloudWriteError);
+          saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds();
+          await cloudReplaceAllData();
           els.budgetInput.value = getBudgetForMonth(state.selectedMonth) || "";
           els.fundsInput.value = state.totalFunds || "";
           els.savingTarget.value = state.savingGoal.target || "";
@@ -1812,15 +1633,13 @@
     async function clearAllData() {
       if (!confirm("确定要清空所有数据吗？")) return;
       if (!confirm("此操作不可恢复，请再次确认。")) return;
-      state.deleteQueue = [...new Set([...state.deleteQueue, ...state.bills.map((bill) => bill.id)])];
       state.bills = [];
       state.budgets = {};
       state.fixedExpenses = [];
       state.savingGoal = { target: 0, current: 0 };
       state.totalFunds = 0;
-      state.settingsPendingSync = true;
-      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds(); saveSettingsPending(); saveDeleteQueue();
-      syncPendingData().catch(handleCloudWriteError);
+      saveBills(); saveBudgets(); saveFixedExpenses(); saveSavingGoal(); saveTotalFunds();
+      await cloudReplaceAllData();
       renderAll();
     }
 
@@ -1868,17 +1687,6 @@
       try { return normalizeTotalFunds(JSON.parse(localStorage.getItem(FUNDS_KEY) || "0")); } catch { return 0; }
     }
     function saveTotalFunds() { localStorage.setItem(FUNDS_KEY, JSON.stringify(state.totalFunds)); }
-    function loadSettingsPending() {
-      try { return JSON.parse(localStorage.getItem(SETTINGS_PENDING_KEY) || "false") === true; } catch { return false; }
-    }
-    function saveSettingsPending() { localStorage.setItem(SETTINGS_PENDING_KEY, JSON.stringify(Boolean(state.settingsPendingSync))); }
-    function loadDeleteQueue() {
-      try {
-        const queue = JSON.parse(localStorage.getItem(DELETE_QUEUE_KEY) || "[]");
-        return Array.isArray(queue) ? queue : [];
-      } catch { return []; }
-    }
-    function saveDeleteQueue() { localStorage.setItem(DELETE_QUEUE_KEY, JSON.stringify(state.deleteQueue)); }
 
     function normalizeBill(bill) {
       if (!bill || typeof bill !== "object") return null;
@@ -1901,8 +1709,7 @@
         date: /^\d{4}-\d{2}-\d{2}$/.test(bill.date) ? bill.date : formatDate(new Date()),
         note: typeof bill.note === "string" ? bill.note : "",
         impulse: Boolean(bill.impulse || tag === "冲动消费"),
-        createdAt: bill.createdAt || new Date().toISOString(),
-        syncStatus: bill.syncStatus || "synced"
+        createdAt: bill.createdAt || new Date().toISOString()
       };
     }
 
